@@ -1,9 +1,33 @@
 # Berckley — External Attack-Surface Scanner + Console
 
+![Scanner](https://img.shields.io/badge/scanner-Bash-4EAA25?logo=gnubash&logoColor=white)
+![Dashboard](https://img.shields.io/badge/dashboard-Python%203.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/run-Docker-2496ED?logo=docker&logoColor=white)
+![Base](https://img.shields.io/badge/base-Kali%20Linux-557C94?logo=kalilinux&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Linux-333?logo=linux&logoColor=white)
+![Last commit](https://img.shields.io/github/last-commit/JCaleb2001/berckley)
+![Repo size](https://img.shields.io/github/repo-size/JCaleb2001/berckley)
+
 Berckley scans an organization's **external** attack surface from a list of
 domains/IPs, classifies and validates the findings, scores the overall posture,
 and produces analyst- and executive-facing reports — all driveable from a
 single-page web console.
+
+## Screenshots
+
+**Overview** — security-posture score (0–100 + A–F grade), severity tiles,
+risk-weighted hosts, and findings grouped by security domain:
+
+![Berckley dashboard — Overview](docs/img/overview.png)
+
+**Findings** — filterable table with contextual risk scores, security-domain
+badges, ownership tags, and inline false-positive suppression:
+
+![Berckley dashboard — Findings](docs/img/findings.png)
+
+> Screenshots use a synthetic demo scan (`example.com` + documentation-range
+> IPs) — no real engagement data.
 
 ## Pipeline
 
