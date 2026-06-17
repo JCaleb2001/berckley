@@ -43,6 +43,8 @@ import asset_tags as nw_tags
 import screenshots as nw_screenshots
 import taxonomy as nw_taxonomy
 import scorecard as nw_scorecard
+import confidence as nw_confidence
+import evidence as nw_evidence
 
 ROOT = Path(os.environ.get("PENTEST_ROOT", "/workspace")).resolve()
 SCANNER = Path(os.environ.get("SCANNER_PATH", str(ROOT / "extpentest.sh")))
@@ -243,12 +245,14 @@ def _parse_findings(tsv: Path) -> list[dict]:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 4:
                 continue
+            explicit = parts[4] if len(parts) > 4 else ""
             rows.append({
                 "severity": parts[0],
                 "category": parts[1],
                 "scope": parts[2],
                 "description": parts[3],
                 "domain": nw_taxonomy.classify(parts[1], parts[3]),
+                "confidence": nw_confidence.confidence(parts[1], parts[3], explicit),
             })
     return rows
 
@@ -399,7 +403,8 @@ def scan_summary(name: str, source: str = "validated") -> dict:
 @app.get("/api/scans/{name}/findings")
 def scan_findings(name: str, severity: Optional[str] = None, q: Optional[str] = None,
                   source: str = "validated", owner_class: Optional[str] = None,
-                  domain: Optional[str] = None, sort: str = "default") -> dict:
+                  domain: Optional[str] = None, confidence: Optional[str] = None,
+                  sort: str = "default") -> dict:
     sd = _scan_dir(name)
     prefer_validated = source != "raw"
     rows = _parse_findings(_findings_path(sd, prefer_validated))
@@ -408,6 +413,11 @@ def scan_findings(name: str, severity: Optional[str] = None, q: Optional[str] = 
     present = {r["domain"] for r in rows}
     domains_available = [d for d in nw_taxonomy.iter_domains()
                          if d["slug"] in present]
+    present_conf = {r["confidence"]["band"] for r in rows}
+    confidences_available = [
+        {"band": b, "color": nw_confidence.band_color(b)}
+        for b in nw_confidence.BAND_ORDER if b in present_conf
+    ]
     omap = _ownership_map(sd)
     tag_index = {t.host.lower(): t for t in nw_tags.load()}
     # Enrich with ownership + contextual risk score + triage tag
@@ -425,6 +435,12 @@ def scan_findings(name: str, severity: Optional[str] = None, q: Optional[str] = 
         r["has_screenshot"] = bool(sshot_file)
         r["screenshot_url"] = (
             f"/api/scans/{name}/screenshots/{sshot_file}" if sshot_file else ""
+        )
+        # HTTP evidence captured at validation time (see evidence.py)
+        ev_file = nw_evidence.get_evidence_filename_for_scope(sd, r["scope"])
+        r["has_evidence"] = bool(ev_file)
+        r["evidence_url"] = (
+            f"/api/scans/{name}/evidence/{ev_file}" if ev_file else ""
         )
         comps = nw_risk.score_components(
             r["severity"], r["category"], r["scope"], r["owner_class"]
@@ -447,6 +463,9 @@ def scan_findings(name: str, severity: Optional[str] = None, q: Optional[str] = 
     if domain:
         dom_set = {d.strip().lower() for d in domain.split(",") if d.strip()}
         rows = [r for r in rows if r["domain"] in dom_set]
+    if confidence:
+        conf_set = {c.strip().upper() for c in confidence.split(",") if c.strip()}
+        rows = [r for r in rows if r["confidence"]["band"] in conf_set]
     if q:
         ql = q.lower()
         rows = [r for r in rows
@@ -455,12 +474,15 @@ def scan_findings(name: str, severity: Optional[str] = None, q: Optional[str] = 
                 or ql in r["description"].lower()]
     if sort == "risk":
         rows.sort(key=lambda r: -r.get("risk_score", 0))
+    elif sort == "confidence":
+        rows.sort(key=lambda r: -r["confidence"]["score"])
     return {
         "name": name,
         "source": "validated" if (prefer_validated and _has_validation(sd)) else "raw",
         "validated_available": _has_validation(sd),
         "ownership_available": bool(omap),
         "domains_available": domains_available,
+        "confidences_available": confidences_available,
         "count": len(rows),
         "total_risk": round(sum(r.get("risk_score", 0) for r in rows), 1),
         "findings": rows,
@@ -510,6 +532,19 @@ def screenshots_serve(name: str, filename: str) -> FileResponse:
 def screenshots_stats(name: str) -> dict:
     sd = _scan_dir(name)
     return nw_screenshots.stats_for_scan(sd)
+
+
+@app.get("/api/scans/{name}/evidence/{filename}")
+def evidence_serve(name: str, filename: str) -> FileResponse:
+    """Serve a captured HTTP-evidence text blob. Filename comes from the
+    evidence mapping (sanitised hash + .txt)."""
+    sd = _scan_dir(name)
+    if "/" in filename or "\\" in filename or not filename.endswith(".txt"):
+        raise HTTPException(400, "invalid filename")
+    p = sd / "report" / "evidence" / filename
+    if not p.is_file():
+        raise HTTPException(404, "evidence not found")
+    return FileResponse(p, media_type="text/plain; charset=utf-8")
 
 
 # ─── Triage (asset verification + ownership tagging) ─────────────────────────

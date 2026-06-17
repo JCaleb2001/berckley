@@ -55,6 +55,18 @@ SOC_REPORT_PATH=$(realpath ../nw_report_soc.sh) \
 uvicorn app:app --host 127.0.0.1 --port 8080 --reload
 ```
 
+## Tests
+
+A regression corpus guards the false-positive logic (confidence bands, the
+security-domain taxonomy, the posture score, and the validator re-probe rules).
+Network is mocked, so the suite is offline and fast:
+
+```bash
+cd dashboard
+pip install -r requirements-dev.txt
+pytest            # tests/
+```
+
 ## API surface
 
 | Method | Path                                       | Purpose                          |

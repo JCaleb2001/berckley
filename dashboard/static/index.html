@@ -178,15 +178,17 @@
         </div>
         <div class="chip-group" id="f-owner"></div>
         <div class="chip-group" id="f-domain"></div>
+        <div class="chip-group" id="f-confidence"></div>
         <div class="chip-group">
           <label><input type="checkbox" id="f-raw"> Show Raw (Pre-Validation)</label>
           <label><input type="checkbox" id="f-sort-risk"> Sort by Risk</label>
+          <label><input type="checkbox" id="f-group"> Group duplicates</label>
         </div>
         <span class="dim" id="f-count">0 rows</span>
       </div>
       <div class="table-wrap">
         <table class="data findings">
-          <thead><tr><th>Sev</th><th>Risk</th><th>Domain</th><th>Category</th><th>Scope</th><th>Owner</th><th>Description</th><th></th></tr></thead>
+          <thead><tr><th>Sev</th><th>Risk</th><th>Conf</th><th>Domain</th><th>Category</th><th>Scope</th><th>Owner</th><th>Description</th><th></th></tr></thead>
           <tbody id="findings-body"></tbody>
         </table>
       </div>

@@ -19,17 +19,34 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import logging
 import os
 import re
 import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
+
+# Shared scope→URL helper (same one the screenshot/evidence layers use, so URL
+# keying stays consistent). Fallback keeps the validator runnable standalone.
+try:
+    from screenshots import scope_to_url as _scope_url
+except Exception:  # pragma: no cover
+    def _scope_url(scope: str) -> Optional[str]:
+        s = (scope or "").strip().split()[0] if (scope or "").strip() else ""
+        if not s:
+            return None
+        if s.startswith(("http://", "https://")):
+            return s
+        if re.search(r"\.[a-z]{2,}", s):
+            return "https://" + s.split("/")[0]
+        return None
 
 # ─── Data ─────────────────────────────────────────────────────────────────────
 SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
@@ -42,9 +59,11 @@ class Finding:
     scope: str
     description: str
     line_no: int = 0  # original index, useful for stable audit output
+    confidence: str = ""  # optional explicit confidence band (5th TSV column)
 
     def to_tsv(self) -> str:
-        return f"{self.severity}\t{self.category}\t{self.scope}\t{self.description}"
+        return (f"{self.severity}\t{self.category}\t{self.scope}\t"
+                f"{self.description}\t{self.confidence}")
 
 
 @dataclass
@@ -691,6 +710,157 @@ class OwnershipInfraRule(Rule):
         return Verdict.keep()
 
 
+# ─── Category-specific re-probe rules ─────────────────────────────────────────
+def _final_headers(url: str, origin: Optional[str] = None, timeout: int = 8):
+    """Fetch url following redirects; return (final_status, headers_lower_dict)
+    for the *last* response in the chain. None if the fetch could not run.
+    Reuses curl (already required) — no new deps."""
+    cmd = ["curl", "-sk", "-A", "berckley-validator/1.0", "-L",
+           "-o", "/dev/null", "-D", "-", "--max-time", str(timeout),
+           "-w", "\n__CODE__ %{http_code}"]
+    if origin:
+        cmd += ["-H", f"Origin: {origin}"]
+    cmd.append(url)
+    rc, out = run(cmd, timeout=timeout + 4)
+    if not out:
+        return None
+    code = 0
+    blocks: list[dict] = []
+    cur: dict = {}
+    for line in out.splitlines():
+        if line.startswith("HTTP/"):
+            if cur:
+                blocks.append(cur)
+            cur = {}
+        elif line.startswith("__CODE__"):
+            try:
+                code = int(line.split()[1])
+            except (ValueError, IndexError):
+                pass
+        elif ":" in line:
+            k, _, v = line.partition(":")
+            cur[k.strip().lower()] = v.strip()
+    if cur:
+        blocks.append(cur)
+    return code, (blocks[-1] if blocks else {})
+
+
+class HeaderPresenceRule(Rule):
+    """Re-fetch the URL *following redirects* and check whether the security
+    header the scanner reported as missing is actually set on the FINAL
+    response. The classic FP: the scanner probed an http→https redirect (or an
+    error hop) that legitimately carries no headers, while the real app does.
+    Only handles 'header entirely absent' findings — not 'present but weak'
+    ones (CSP unsafe-inline, HSTS max-age too low, …)."""
+    name = "header-present-on-final"
+    description = "security header is set on the final response"
+    needs_network = True
+
+    HEADER_MAP = {
+        "Missing Content-Security-Policy":      "content-security-policy",
+        "Missing HSTS (HTTP Strict Transport Security)": "strict-transport-security",
+        "Missing HSTS":                         "strict-transport-security",
+        "Missing X-Frame-Options":              "x-frame-options",
+        "Missing X-Content-Type-Options":       "x-content-type-options",
+        "Missing Referrer-Policy":              "referrer-policy",
+        "Missing Permissions-Policy":           "permissions-policy",
+        "Missing Cross-Origin-Opener-Policy":   "cross-origin-opener-policy",
+    }
+
+    def _header_for(self, f: Finding) -> Optional[str]:
+        cat = (f.category or "").strip()
+        return self.HEADER_MAP.get(cat)
+
+    def applies(self, f: Finding) -> bool:
+        return self._header_for(f) is not None and bool(_scope_url(f.scope))
+
+    def validate(self, f: Finding) -> Verdict:
+        hdr = self._header_for(f)
+        url = _scope_url(f.scope)
+        if not hdr or not url:
+            return Verdict.keep()
+        res = _final_headers(url)
+        if not res:
+            return Verdict.keep()          # couldn't verify → fail open
+        code, hdrs = res
+        if code and code < 400 and hdr in hdrs:
+            return Verdict.suppress(
+                self.name,
+                f"{hdr} is set on the final response (HTTP {code}) — original "
+                f"probe likely hit a redirect/error hop")
+        return Verdict.keep()
+
+
+class CorsReverifyRule(Rule):
+    """Re-send the request with a probe Origin and confirm the CORS finding is
+    actually exploitable: the origin must be reflected AND credentials allowed.
+    Reflection without `Access-Control-Allow-Credentials: true` is low-impact
+    (browsers won't expose the response to script with credentials), and no
+    reflection at all is a flat false positive."""
+    name = "cors-reverify"
+    description = "CORS reflection + credentials re-check"
+    needs_network = True
+    PROBE_ORIGIN = "https://berckley-cors-probe.example"
+
+    def applies(self, f: Finding) -> bool:
+        return "cors" in (f.category or "").lower() and bool(_scope_url(f.scope))
+
+    def validate(self, f: Finding) -> Verdict:
+        url = _scope_url(f.scope)
+        if not url:
+            return Verdict.keep()
+        res = _final_headers(url, origin=self.PROBE_ORIGIN)
+        if not res:
+            return Verdict.keep()
+        _code, hdrs = res
+        acao = hdrs.get("access-control-allow-origin", "")
+        acac = hdrs.get("access-control-allow-credentials", "").lower() == "true"
+        reflected = acao == self.PROBE_ORIGIN
+        wildcard = acao == "*"
+        if not (reflected or wildcard):
+            return Verdict.suppress(
+                self.name,
+                f"probe Origin not reflected (ACAO={acao or 'absent'}) — not exploitable")
+        if reflected and acac:
+            return Verdict.keep()          # genuine credentialed cross-origin read
+        if f.severity in ("CRITICAL", "HIGH"):
+            return Verdict.downgrade(
+                self.name, "LOW",
+                f"permissive CORS (ACAO={acao}) but no credentials — limited impact")
+        return Verdict.keep()
+
+
+class TakeoverReverifyRule(Rule):
+    """Re-verify subdomain-takeover / dangling-DNS findings via DNS (reliable,
+    no body guessing): a takeover needs a CNAME whose target no longer resolves.
+    If the CNAME is gone → SUPPRESS; if the target now resolves (claimed/active)
+    → DOWNGRADE; if the CNAME is still dangling → KEEP (genuine, stays HIGH)."""
+    name = "takeover-reverify"
+    description = "dangling-CNAME re-check via DNS"
+    needs_network = True
+
+    def applies(self, f: Finding) -> bool:
+        c = (f.category or "").lower()
+        return "takeover" in c or "dangling dns" in c
+
+    def validate(self, f: Finding) -> Verdict:
+        host = extract_host(f.scope)
+        if not host:
+            return Verdict.keep()
+        cname = resolve_cname(host)
+        if not cname:
+            if not host_resolves(host):
+                return Verdict.suppress(
+                    self.name, "host no longer resolves — dangling target is gone")
+            return Verdict.keep()          # no visible CNAME, but resolves → can't disprove
+        target_live = bool(dns_lookup(cname, "A") or dns_lookup(cname, "AAAA"))
+        if target_live:
+            return Verdict.downgrade(
+                self.name, "LOW",
+                f"CNAME target {cname} resolves — service appears claimed, not dangling")
+        return Verdict.keep()              # CNAME present, target dead → genuinely dangling
+
+
 # Registration order matters: user suppressions first (intent overrides auto),
 # then cheap pure-filter rules, then network probes.
 RULES: list[Rule] = [
@@ -698,6 +868,9 @@ RULES: list[Rule] = [
     Rfc1918Rule(),
     StaleScopeRule(),           # FP-killer for nuclei/SSTI/admin/etc when site is gone
     WildcardHostRule(),         # FP-killer for SPA/catch-all hosts returning same body
+    HeaderPresenceRule(),       # header actually set on the final (post-redirect) response
+    CorsReverifyRule(),         # CORS only real if origin reflected + credentials
+    TakeoverReverifyRule(),     # dangling CNAME re-checked via DNS
     SnmpReverifyRule(),
     EmailAuthNoMxRule(),
     CertCnameSaasRule(),
@@ -715,19 +888,51 @@ def load_findings(tsv: Path) -> list[Finding]:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 4:
                 continue
-            out.append(Finding(parts[0], parts[1], parts[2], parts[3], line_no=i))
+            conf = parts[4] if len(parts) > 4 else ""
+            out.append(Finding(parts[0], parts[1], parts[2], parts[3],
+                               line_no=i, confidence=conf))
     return out
+
+
+# ─── Rule telemetry ───────────────────────────────────────────────────────────
+# Per-rule counts for the most recent validation run, so we can see what each
+# rule actually does (and which rules error) instead of failing open silently.
+log = logging.getLogger("berckley.validator")
+_tele_lock = threading.Lock()
+RULE_TELEMETRY: dict[str, dict] = {}
+
+
+def _reset_telemetry() -> None:
+    with _tele_lock:
+        RULE_TELEMETRY.clear()
+        for r in RULES:
+            RULE_TELEMETRY[r.name] = {"applied": 0, "acted": 0, "errored": 0}
+
+
+def _tele(rule_name: str, key: str) -> None:
+    with _tele_lock:
+        d = RULE_TELEMETRY.setdefault(
+            rule_name, {"applied": 0, "acted": 0, "errored": 0})
+        d[key] = d.get(key, 0) + 1
 
 
 def evaluate(f: Finding) -> Verdict:
     for rule in RULES:
         try:
-            if rule.applies(f):
-                v = rule.validate(f)
-                if v.action != "KEEP":
-                    return v
-        except Exception as e:  # one bad rule shouldn't sink the run
-            return Verdict.keep()  # fail open — keep the finding
+            if not rule.applies(f):
+                continue
+            _tele(rule.name, "applied")
+            v = rule.validate(f)
+            if v.action != "KEEP":
+                _tele(rule.name, "acted")
+                return v
+        except Exception as e:
+            # One flaky rule (e.g. a network probe) must not skip the remaining
+            # rules for this finding — log it and keep going.
+            _tele(rule.name, "errored")
+            log.warning("validator rule %s errored on scope=%r: %s",
+                        rule.name, f.scope, e)
+            continue
     return Verdict.keep()
 
 
@@ -788,7 +993,7 @@ def write_outputs(pairs: list[tuple[Finding, Verdict]], pentest_dir: Path) -> di
             else:
                 stats["kept"] += 1
                 fa.write(f"{f.severity}\t{new_sev}\t{f.category}\t{f.scope}\t{f.description}\tKEEP\t\t\n")
-            fv.write(f"{new_sev}\t{f.category}\t{f.scope}\t{f.description}\n")
+            fv.write(f"{new_sev}\t{f.category}\t{f.scope}\t{f.description}\t{f.confidence}\n")
             stats["severity_after"][new_sev] = stats["severity_after"].get(new_sev, 0) + 1
 
     stats["validated_path"] = str(val_path)
@@ -830,8 +1035,27 @@ def run_validation(pentest_dir: Path, workers: int = 16,
         OwnershipInfraRule.OWNERSHIP_MAP = {}
         ownership_stats = {"ownership_error": str(e)}
 
+    _reset_telemetry()
     pairs = validate_all(findings, workers=workers, progress=progress)
     stats = write_outputs(pairs, pentest_dir)
+    # Per-rule telemetry: how many findings each rule evaluated / acted on /
+    # errored. Surfaces silent fail-open errors that used to be invisible.
+    stats["rule_telemetry"] = {
+        k: v for k, v in RULE_TELEMETRY.items()
+        if v.get("applied") or v.get("errored")
+    }
+
+    # Best-effort: capture HTTP evidence for the surviving (non-suppressed)
+    # findings so the analyst/report can see what actually responded. Never let
+    # an evidence failure sink the validation run.
+    try:
+        import evidence
+        kept = [f for f, v in pairs if v.action != "SUPPRESS"]
+        stats["evidence"] = evidence.capture_for_findings(pentest_dir, kept,
+                                                          workers=workers)
+    except Exception as e:
+        stats["evidence"] = {"error": str(e)}
+
     stats["duration_sec"] = round(time.time() - started, 2)
     stats["tools"] = {
         "dig": have("dig"),

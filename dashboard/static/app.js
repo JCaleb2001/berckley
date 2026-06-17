@@ -11,6 +11,8 @@ const state = {
   ownerFilter: new Set(),  // active ownership-class chips on findings tab
   domainFilter: new Set(), // active security-domain chips on findings tab
   domainMeta: {},          // slug -> {label,icon,color} from the API
+  confidenceFilter: new Set(), // active confidence-band chips on findings tab
+  groupDupes: false,       // collapse same finding across many hosts
   intake: null,            // last intake result for the modal
 };
 
@@ -630,6 +632,7 @@ function bindFindings() {
   $$('#f-sev input').forEach(cb => cb.addEventListener("change", loadFindings));
   $("#f-raw").addEventListener("change", e => { state.showRaw = e.target.checked; loadFindings(); });
   $("#f-sort-risk").addEventListener("change", loadFindings);
+  $("#f-group").addEventListener("change", e => { state.groupDupes = e.target.checked; loadFindings(); });
 }
 
 async function loadFindings() {
@@ -638,11 +641,13 @@ async function loadFindings() {
   const q = $("#f-search").value;
   const owners = Array.from(state.ownerFilter).join(",");
   const domains = Array.from(state.domainFilter).join(",");
+  const confidences = Array.from(state.confidenceFilter).join(",");
   const params = new URLSearchParams();
   if (sevs) params.set("severity", sevs);
   if (q) params.set("q", q);
   if (owners) params.set("owner_class", owners);
   if (domains) params.set("domain", domains);
+  if (confidences) params.set("confidence", confidences);
   if (state.showRaw) params.set("source", "raw");
   if ($("#f-sort-risk").checked) params.set("sort", "risk");
   const data = await api(`/api/scans/${state.selected}/findings?${params}`);
@@ -653,7 +658,15 @@ async function loadFindings() {
   state.domainMeta = {};
   (data.domains_available || []).forEach(d => { state.domainMeta[d.slug] = d; });
   renderDomainChips(data.domains_available || []);
+  renderConfidenceChips(data.confidences_available || []);
   const body = $("#findings-body"); body.innerHTML = "";
+  if (state.groupDupes) {
+    const groups = groupFindings(data.findings);
+    for (const g of groups) body.appendChild(groupRow(g));
+    $("#f-count").textContent =
+      `${groups.length} group${groups.length === 1 ? "" : "s"} · ${data.count} finding${data.count === 1 ? "" : "s"} (${data.source})`;
+    return;
+  }
   for (const f of data.findings) {
     const owner = f.owner_class
       ? `<span class="own-tag ${f.owner_class}" title="${escapeHtml(f.owner_provider || '')}">${f.owner_class}${f.owner_provider ? ' · ' + escapeHtml(f.owner_provider) : ''}</span>`
@@ -665,14 +678,20 @@ async function loadFindings() {
       subBits.push(`<span class="owner-tag-pill" title="From Triage tab">🏷 ${escapeHtml(f.owner_tag)}</span>`);
     }
     if (f.has_screenshot) {
-      subBits.push(`<span class="shot-icon" data-shot="${escapeHtml(f.screenshot_url)}" data-scope="${escapeHtml(f.scope)}" title="Click to view screenshot">📸 evidence</span>`);
+      subBits.push(`<span class="shot-icon" data-shot="${escapeHtml(f.screenshot_url)}" data-scope="${escapeHtml(f.scope)}" title="Click to view screenshot">📸 screenshot</span>`);
+    }
+    if (f.has_evidence) {
+      subBits.push(`<a class="evidence-icon" href="${escapeHtml(f.evidence_url)}" target="_blank" rel="noopener" title="Captured HTTP response (status, headers, body snippet)">📄 evidence</a>`);
     }
     const subLine = subBits.length
       ? `<div class="finding-sub">${subBits.join("")}</div>`
       : '';
+    const conf = f.confidence || {band: "MEDIUM", color: "#ffb300"};
     const tr = document.createElement("tr");
+    if (conf.band === "LOW") tr.classList.add("low-confidence");
     tr.innerHTML = `<td><span class="sev-tag ${sevClass(f.severity)}">${f.severity}</span></td>
                     <td>${riskCellHTML(f)}</td>
+                    <td><span class="conf-tag" style="--cc:${conf.color}" title="Confidence: ${conf.band} (score ${conf.score})">${conf.band}</span></td>
                     <td>${domainBadgeHTML(f.domain)}</td>
                     <td class="cat">${escapeHtml(f.category)}</td>
                     <td class="scope">${escapeHtml(f.scope)}${subLine}</td>
@@ -689,6 +708,54 @@ async function loadFindings() {
     }
     body.appendChild(tr);
   }
+}
+
+// Collapse findings that share (severity, category, description) — the same
+// issue repeated across many hosts — into one group, keeping every scope.
+function groupFindings(findings) {
+  const map = new Map();
+  for (const f of findings) {
+    const key = `${f.severity} ${f.category} ${f.description}`;
+    let g = map.get(key);
+    if (!g) {
+      g = { severity: f.severity, category: f.category, description: f.description,
+            domain: f.domain, confidence: f.confidence, maxRisk: 0, members: [] };
+      map.set(key, g);
+    }
+    g.members.push(f);
+    g.maxRisk = Math.max(g.maxRisk, Number(f.risk_score || 0));
+  }
+  const groups = [...map.values()];
+  // Mirror the active sort so grouped view stays ordered sensibly.
+  if ($("#f-sort-risk").checked) groups.sort((a, b) => b.maxRisk - a.maxRisk);
+  return groups;
+}
+
+function groupRow(g) {
+  const conf = g.confidence || {band: "MEDIUM", color: "#ffb300"};
+  const tr = document.createElement("tr");
+  if (conf.band === "LOW") tr.classList.add("low-confidence");
+  const n = g.members.length;
+  const scopeCell = n === 1
+    ? `<span class="scope">${escapeHtml(g.members[0].scope)}</span>`
+    : `<details class="scope-group"><summary><span class="grp-count">${n} hosts</span></summary>` +
+      g.members.map(m => {
+        const own = m.owner_class ? ` <span class="own-tag ${m.owner_class}" style="border:0;padding:0">${m.owner_class}</span>` : "";
+        const ev = m.has_evidence ? ` <a class="evidence-icon" href="${escapeHtml(m.evidence_url)}" target="_blank" rel="noopener">📄</a>` : "";
+        return `<div class="scope-line">${escapeHtml(m.scope)} <span class="dim">· risk ${Number(m.risk_score||0).toFixed(1)}</span>${own}${ev}</div>`;
+      }).join("") + `</details>`;
+  const riskCell = `<span class="risk-tag ${riskCls(g.maxRisk)}" title="highest risk across ${n} host(s)">${g.maxRisk.toFixed(1)}</span>`;
+  tr.innerHTML = `<td><span class="sev-tag ${sevClass(g.severity)}">${g.severity}</span></td>
+                  <td>${riskCell}</td>
+                  <td><span class="conf-tag" style="--cc:${conf.color}" title="Confidence: ${conf.band}">${conf.band}</span></td>
+                  <td>${domainBadgeHTML(g.domain)}</td>
+                  <td class="cat">${escapeHtml(g.category)}</td>
+                  <td>${scopeCell}</td>
+                  <td class="dim">${n > 1 ? "various" : (g.members[0].owner_class || "—")}</td>
+                  <td class="desc">${escapeHtml(g.description)}</td>
+                  <td><button class="btn-mini" title="suppress this category on all hosts">✕</button></td>`;
+  tr.querySelector("button").onclick = () => openSuppressModal(g.category, n > 1 ? "*" : g.members[0].scope);
+  return tr;
 }
 
 function riskCellHTML(f) {
@@ -742,6 +809,30 @@ function renderDomainChips(domains) {
     el.querySelector("input").addEventListener("change", e => {
       if (e.target.checked) state.domainFilter.add(d.slug);
       else state.domainFilter.delete(d.slug);
+      loadFindings();
+    });
+    group.appendChild(el);
+  });
+}
+
+function renderConfidenceChips(bands) {
+  const group = $("#f-confidence");
+  if (!group) return;
+  if (!bands.length) { group.innerHTML = ""; group.dataset.rendered = ""; return; }
+  const sig = bands.map(b => b.band).join(",");
+  if (group.dataset.rendered === sig) {
+    $$('#f-confidence input').forEach(cb => { cb.checked = state.confidenceFilter.has(cb.value); });
+    return;
+  }
+  group.dataset.rendered = sig;
+  group.innerHTML = "";
+  bands.forEach(b => {
+    const el = document.createElement("label");
+    el.innerHTML = `<input type="checkbox" value="${b.band}" ${state.confidenceFilter.has(b.band) ? "checked" : ""}>` +
+      `<span class="conf-tag" style="--cc:${b.color};border:0;padding:0 2px">${b.band}</span>`;
+    el.querySelector("input").addEventListener("change", e => {
+      if (e.target.checked) state.confidenceFilter.add(b.band);
+      else state.confidenceFilter.delete(b.band);
       loadFindings();
     });
     group.appendChild(el);

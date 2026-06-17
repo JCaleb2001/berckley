@@ -25,6 +25,7 @@ import risk as nw_risk
 import screenshots as nw_screenshots
 import taxonomy as nw_taxonomy
 import scorecard as nw_scorecard
+import confidence as nw_confidence
 
 SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
 
@@ -514,9 +515,11 @@ def _load_findings(pentest_dir: Path) -> list[dict]:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 4:
                 continue
+            explicit = parts[4] if len(parts) > 4 else ""
             rows.append({
                 "severity": parts[0], "category": parts[1],
                 "scope": parts[2], "description": parts[3],
+                "confidence": nw_confidence.confidence(parts[1], parts[3], explicit),
             })
     return rows
 
@@ -963,20 +966,39 @@ def domains_html(pentest_dir: Path, theme: str = "mgmt") -> str:
             buckets[d["slug"]],
             key=lambda r: (sev_rank.get(r["severity"], 9), r["category"]),
         )
-        body = "".join(
-            f"<tr><td><span class=\"pill {SEV_PILL.get(r['severity'], '')}\">"
-            f"{r['severity']}</span></td>"
-            f"<td>{_h(r['category'])}</td>"
-            f"<td class=\"scope\">{_h(r['scope'])}</td>"
-            f"<td>{_h(r['description'])}</td></tr>"
-            for r in rows
-        )
+        def _conf_cell(c):
+            return (f'<td><span style="font-size:10px;font-weight:700;'
+                    f'border:1px solid {c["color"]};color:{c["color"]};'
+                    f'border-radius:4px;padding:0 6px">{c["band"]}</span></td>')
+
+        # Collapse the same issue (severity, category, description) across many
+        # hosts into one row with a host count — cuts report noise.
+        groups: dict = {}
+        for r in rows:
+            key = (r["severity"], r["category"], r["description"])
+            groups.setdefault(key, []).append(r["scope"])
+        body = ""
+        for (sev, cat, desc), scopes in groups.items():
+            c = nw_confidence.confidence(cat, desc)
+            if len(scopes) == 1:
+                scope_cell = _h(scopes[0])
+            else:
+                shown = ", ".join(_h(s) for s in scopes[:6])
+                more = f" <em>(+{len(scopes) - 6} more)</em>" if len(scopes) > 6 else ""
+                scope_cell = (f"<strong>{len(scopes)} hosts</strong>: {shown}{more}")
+            body += (
+                f"<tr><td><span class=\"pill {SEV_PILL.get(sev, '')}\">{sev}</span></td>"
+                f"{_conf_cell(c)}"
+                f"<td>{_h(cat)}</td>"
+                f"<td class=\"scope\">{scope_cell}</td>"
+                f"<td>{_h(desc)}</td></tr>"
+            )
         detail += (
             f'<h3><span style="display:inline-block;width:11px;height:11px;'
             f'border-radius:2px;background:{d["color"]};margin-right:8px;'
             f'vertical-align:middle"></span>{_h(d["label"])} '
-            f'<span style="font-weight:400">({len(rows)})</span></h3>'
-            f"<table><thead><tr><th>Sev</th><th>Category</th><th>Scope</th>"
+            f'<span style="font-weight:400">({len(rows)} findings · {len(groups)} unique)</span></h3>'
+            f"<table><thead><tr><th>Sev</th><th>Conf</th><th>Category</th><th>Hosts</th>"
             f"<th>Description</th></tr></thead><tbody>{body}</tbody></table>"
         )
 
