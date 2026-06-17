@@ -1,0 +1,24 @@
+# Per-engagement scan outputs + analyst state — kept outside version control:
+# big, target-specific, and contain raw evidence (logs, request bodies, real
+# hostnames/IPs). Never commit these to a public repo.
+pentest_*/
+*_validation_review.md
+asset_tags.json
+suppressions.json
+domains_*.txt
+scope*.txt
+
+# Local editor / OS noise
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Temporary regenerator helpers
+/tmp/regen_report_md.sh
+
+# Python virtualenvs & bytecode caches
+.venv/
+__pycache__/
+*.pyc

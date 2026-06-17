@@ -1,0 +1,29 @@
+services:
+  berckley:
+    build: .
+    image: berckley:latest
+    container_name: berckley
+    # Bind to all interfaces so others on the LAN can reach the console.
+    # NOTE: no built-in auth — restrict access via firewall (ufw allow from
+    # <LAN-CIDR> to any port 8080) or front with a reverse-proxy + basic auth
+    # if you need finer control.
+    ports:
+      - "0.0.0.0:8080:8080"
+    # Override Docker's embedded resolver (127.0.0.11) which on this host
+    # forwards to corporate-DNS that mangles external lookups. Public
+    # resolvers ensure the scanner can resolve targets reliably from inside
+    # the container.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 9.9.9.9
+    # Mount the repo root so the dashboard reads scans + scripts directly,
+    # and so newly created scans persist on the host.
+    volumes:
+      - ../:/workspace
+    environment:
+      PENTEST_ROOT: /workspace
+      SCANNER_PATH: /workspace/extpentest.sh
+      MGMT_REPORT_PATH: /workspace/nw_report_mgmt.sh
+      SOC_REPORT_PATH: /workspace/nw_report_soc.sh
+    restart: unless-stopped

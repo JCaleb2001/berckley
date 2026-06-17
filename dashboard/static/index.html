@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Berckley // External Pentest Console</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="apple-touch-icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo-frame">
+      <img src="/logo.png" alt="berckley" class="logo-img"
+           onerror="this.style.display='none';this.parentElement.querySelector('.logo').style.display='grid';">
+      <span class="logo" style="display:none">br</span>
+    </div>
+    <div class="brand-text">
+      <div class="title">
+        <span class="wordmark">Berckley</span>
+        <span class="sep">//</span>
+        <span class="subtitle">External Pentest Console</span>
+      </div>
+      <div class="sub health-line" id="health-line"><span class="online-dot"></span> Booting…</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="btn-refresh" class="ghost">↻ Refresh</button>
+    <button id="btn-new" class="primary">+ New Scan</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <span>Scans</span>
+      <span class="dim" id="scan-count">0</span>
+    </div>
+    <ul id="scan-list" class="scan-list"></ul>
+  </aside>
+
+  <section class="content">
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="findings">Findings</button>
+      <button class="tab" data-tab="audit">Validation</button>
+      <button class="tab" data-tab="ownership">Ownership</button>
+      <button class="tab" data-tab="suppressions">Suppressions</button>
+      <button class="tab" data-tab="diff">Diff</button>
+      <button class="tab" data-tab="assets">Assets</button>
+      <button class="tab" data-tab="extract">Extract</button>
+      <button class="tab" data-tab="triage">Triage</button>
+      <button class="tab" data-tab="live">Live Log</button>
+      <button class="tab" data-tab="reports">Reports</button>
+      <a class="tab tab-aux" href="/static/guide.html" target="_blank" rel="noopener"
+         title="Open the user guide in a new tab">? Guide ↗</a>
+    </nav>
+
+    <div id="panel-overview" class="panel active">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Overview</h2>
+        </div>
+        <p class="panel-desc">// Posture at a glance — severity counts, top risk-weighted hosts, and most impacted categories.</p>
+      </div>
+      <div id="overview-empty" class="empty">Select a scan from the left, or launch a new one →</div>
+      <div id="overview-body" class="hidden">
+        <div class="meta">
+          <div><span class="dim">Target</span><div id="ov-target">—</div></div>
+          <div><span class="dim">Started</span><div id="ov-started">—</div></div>
+          <div><span class="dim">Status</span><div id="ov-status">—</div></div>
+        </div>
+
+        <div class="actions-bar">
+          <div class="actions-bar-head">
+            <span class="actions-prompt">⚡</span>
+            <span class="actions-title">Actions</span>
+            <span class="dim actions-sub">Run any of these against the selected scan</span>
+          </div>
+          <div class="actions-grid">
+            <div class="action-card">
+              <div class="action-card-head">
+                <span class="action-card-name">Validation</span>
+                <span class="action-card-state" id="ov-val-state">Not yet run</span>
+              </div>
+              <p class="action-card-desc">Filter false positives, classify ownership, recompute risk scores.</p>
+              <button id="btn-validate" class="action-card-btn primary">▶ Run Validation</button>
+            </div>
+            <div class="action-card">
+              <div class="action-card-head">
+                <span class="action-card-name">Visual Evidence</span>
+                <span class="action-card-state" id="shots-state">no screenshots yet</span>
+              </div>
+              <p class="action-card-desc">Capture chromium screenshots of every HIGH+ finding's URL for the report.</p>
+              <button id="btn-capture-shots" class="action-card-btn primary">📸 Capture Screenshots</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="ov-source-banner" class="banner hidden"></div>
+
+        <div id="scorecard" class="scorecard hidden"></div>
+
+        <div class="sev-grid">
+          <div class="sev-card crit"><div class="lbl">Critical</div><div id="ov-crit" class="val">0</div><div class="delta dim" id="ov-crit-d"></div></div>
+          <div class="sev-card high"><div class="lbl">High</div><div id="ov-high" class="val">0</div><div class="delta dim" id="ov-high-d"></div></div>
+          <div class="sev-card med"><div class="lbl">Medium</div><div id="ov-med" class="val">0</div><div class="delta dim" id="ov-med-d"></div></div>
+          <div class="sev-card low"><div class="lbl">Low</div><div id="ov-low" class="val">0</div><div class="delta dim" id="ov-low-d"></div></div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-head">Severity Distribution</div>
+            <div id="chart-sev" class="chart-body"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-head">Ownership Distribution</div>
+            <div id="chart-own" class="chart-body"></div>
+          </div>
+          <div class="chart-card chart-wide">
+            <div class="chart-head">Top 10 Hosts by Risk</div>
+            <div id="chart-risk" class="chart-body"></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div class="block-title">Top Hosts by Risk
+            <span class="dim" style="font-weight:400;font-size:11px">
+              · severity × exploitability × ownership × host criticality
+            </span>
+          </div>
+          <table class="data" id="tbl-risk-hosts"><tbody></tbody></table>
+        </div>
+        <div style="margin-bottom:14px">
+          <div class="block-title">Findings by Security Domain
+            <span class="dim" style="font-weight:400;font-size:11px">
+              · every finding classified into one main domain
+            </span>
+          </div>
+          <div id="domain-cards" class="domain-cards"></div>
+        </div>
+        <div class="cols">
+          <div class="col">
+            <div class="block-title">Top Categories</div>
+            <table class="data" id="tbl-cats"><tbody></tbody></table>
+          </div>
+          <div class="col">
+            <div class="block-title">Most-Hit Scopes</div>
+            <table class="data" id="tbl-scopes"><tbody></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-findings" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Findings</h2>
+        </div>
+        <p class="panel-desc">// Every issue the scanner surfaced. Filter by severity or ownership, sort by contextual risk, or suppress false positives inline.</p>
+      </div>
+      <div class="toolbar">
+        <input id="f-search" placeholder="Filter category / scope / description…" />
+        <div class="chip-group" id="f-sev">
+          <label><input type="checkbox" value="CRITICAL" checked> Crit</label>
+          <label><input type="checkbox" value="HIGH" checked> High</label>
+          <label><input type="checkbox" value="MEDIUM" checked> Med</label>
+          <label><input type="checkbox" value="LOW" checked> Low</label>
+        </div>
+        <div class="chip-group" id="f-owner"></div>
+        <div class="chip-group" id="f-domain"></div>
+        <div class="chip-group">
+          <label><input type="checkbox" id="f-raw"> Show Raw (Pre-Validation)</label>
+          <label><input type="checkbox" id="f-sort-risk"> Sort by Risk</label>
+        </div>
+        <span class="dim" id="f-count">0 rows</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data findings">
+          <thead><tr><th>Sev</th><th>Risk</th><th>Domain</th><th>Category</th><th>Scope</th><th>Owner</th><th>Description</th><th></th></tr></thead>
+          <tbody id="findings-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="panel-audit" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Validation</h2>
+        </div>
+        <p class="panel-desc">// Audit trail of every auto-rule decision — what was suppressed, what was downgraded, and the rule + reason behind each call.</p>
+      </div>
+      <div class="toolbar">
+        <div class="chip-group" id="a-verdict">
+          <label><input type="checkbox" value="SUPPRESS" checked> Suppressed</label>
+          <label><input type="checkbox" value="DOWNGRADE" checked> Downgraded</label>
+          <label><input type="checkbox" value="KEEP"> Kept</label>
+        </div>
+        <button id="btn-validate-2" class="primary">▶ Run Validation</button>
+        <span class="dim" id="audit-count">0 rows</span>
+      </div>
+      <div id="audit-empty" class="empty hidden">No audit data — run validation first.</div>
+      <div class="table-wrap" id="audit-wrap">
+        <table class="data">
+          <thead><tr><th>Verdict</th><th>Orig→New</th><th>Category</th><th>Scope</th><th>Rule</th><th>Reason</th></tr></thead>
+          <tbody id="audit-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="panel-ownership" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Ownership</h2>
+        </div>
+        <p class="panel-desc">// Per-host classification: OWNED · SAAS · CDN · CLOUD_SHARED · INTERNAL · EXTERNAL · UNKNOWN — with provider, IP, ASN, and the evidence used.</p>
+      </div>
+      <div class="toolbar">
+        <div id="o-classes" class="chip-group"></div>
+        <span class="dim" id="o-count">0 hosts</span>
+      </div>
+      <div id="ownership-empty" class="empty hidden">No ownership data — run validation to classify.</div>
+      <div class="table-wrap" id="ownership-wrap">
+        <table class="data">
+          <thead><tr><th>Host</th><th>Class</th><th>Provider</th><th>IP</th><th>ASN</th><th>Evidence</th></tr></thead>
+          <tbody id="ownership-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="panel-suppressions" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Suppressions</h2>
+        </div>
+        <p class="panel-desc">// Persistent allowlist of accepted false positives. Glob match supported (e.g. <code>*.example.com</code>). Entries survive re-runs and re-validation.</p>
+      </div>
+      <div class="toolbar">
+        <span class="dim" id="sup-count">0 entries</span>
+      </div>
+      <div id="sup-empty" class="empty hidden">No suppressions yet — click the ✕ button on a finding to add one.</div>
+      <div class="table-wrap" id="sup-wrap">
+        <table class="data">
+          <thead><tr><th>Active</th><th>Category</th><th>Scope</th><th>Reason</th><th>Added</th><th>Expires</th><th></th></tr></thead>
+          <tbody id="sup-body"></tbody>
+        </table>
+      </div>
+      <div class="dim" style="margin-top:10px;font-size:11px">
+        Suppressions file: <code id="sup-file">—</code>
+      </div>
+    </div>
+
+    <div id="panel-diff" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Diff</h2>
+        </div>
+        <p class="panel-desc">// Compare two runs — what's new, fixed, or changed in severity since a previous engagement. Auto-picks the most recent prior scan with overlapping domains.</p>
+      </div>
+      <div class="toolbar">
+        <label class="dim">Compare against:</label>
+        <select id="diff-against"><option value="">— Auto: previous run with same target —</option></select>
+        <button id="btn-diff" class="primary">▶ Run Diff</button>
+        <span class="dim" id="diff-state"></span>
+      </div>
+      <div id="diff-empty" class="empty">Pick a previous scan (or use auto) and click Run Diff.</div>
+      <div id="diff-body" class="hidden">
+        <div class="sev-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 12px">
+          <div class="sev-card crit"><div class="lbl">New</div><div id="diff-new-n" class="val">0</div></div>
+          <div class="sev-card low"><div class="lbl">Fixed</div><div id="diff-fixed-n" class="val">0</div></div>
+          <div class="sev-card med"><div class="lbl">Changed</div><div id="diff-changed-n" class="val">0</div></div>
+          <div class="sev-card"><div class="lbl">Unchanged</div><div id="diff-same-n" class="val">0</div></div>
+        </div>
+        <div class="cols" style="grid-template-columns: 1fr">
+          <div>
+            <div class="block-title">New (Regressions / Fresh Exposure)</div>
+            <table class="data"><tbody id="diff-new-body"></tbody></table>
+          </div>
+          <div style="margin-top:14px">
+            <div class="block-title">Fixed (Closed Since Previous Run)</div>
+            <table class="data"><tbody id="diff-fixed-body"></tbody></table>
+          </div>
+          <div style="margin-top:14px">
+            <div class="block-title">Severity Changed</div>
+            <table class="data"><tbody id="diff-changed-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-assets" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Assets</h2>
+        </div>
+        <p class="panel-desc">// Heterogeneous discovery inventory — subdomains, ASNs, crawl output, GitHub orgs, Azure AD tenants, federated auth endpoints.</p>
+      </div>
+      <div class="toolbar">
+        <div id="a-types" class="chip-group"></div>
+        <span class="dim" id="a-count">0 rows</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Type</th><th>Value</th></tr></thead>
+          <tbody id="assets-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="panel-extract" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Extract</h2>
+        </div>
+        <p class="panel-desc">// Export identified hosts as TXT · CSV · JSON — drop into nmap, nuclei, ffuf, or your ticketing system.</p>
+      </div>
+      <div class="toolbar">
+        <div id="x-classes" class="chip-group"></div>
+        <div class="chip-group">
+          <label><input type="checkbox" id="x-with-findings"> Only Hosts With Findings</label>
+        </div>
+        <div class="chip-group" id="x-format-group">
+          <label><input type="radio" name="xfmt" value="txt" checked> TXT</label>
+          <label><input type="radio" name="xfmt" value="csv"> CSV</label>
+          <label><input type="radio" name="xfmt" value="json"> JSON</label>
+        </div>
+        <span class="dim" id="x-count">0 hosts</span>
+        <div class="row" style="margin-left:auto">
+          <button id="x-copy" class="ghost">⧉ Copy</button>
+          <button id="x-download" class="primary">↓ Download</button>
+        </div>
+      </div>
+      <div id="extract-empty" class="empty hidden">No assets identified yet — run a scan + validation first.</div>
+      <pre id="extract-preview" class="terminal" style="height:calc(100vh - 320px);font-size:12px"></pre>
+    </div>
+
+    <div id="panel-triage" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Triage</h2>
+        </div>
+        <p class="panel-desc">// Discovered domains and subdomains the scanner identified. Click <strong>↻</strong> to manually verify a host is alive, then add an <strong>Owner Tag</strong> to track who owns it. Tags persist across scans and survive scan deletion. IPs and host:port entries are filtered out — only clean FQDNs appear here.</p>
+      </div>
+      <div class="toolbar">
+        <input id="t-search" placeholder="Filter host / tag / notes…">
+        <div class="chip-group" id="t-status-chips"></div>
+        <div class="chip-group">
+          <label><input type="checkbox" id="t-only-tagged"> Only Tagged</label>
+        </div>
+        <button id="t-verify-all" class="primary">↻ Verify All Unchecked</button>
+        <span class="dim" id="t-count">0 hosts</span>
+      </div>
+      <div id="triage-empty" class="empty hidden">No assets identified yet — run a scan + validation first.</div>
+      <div class="table-wrap" id="triage-wrap">
+        <table class="data triage">
+          <thead><tr>
+            <th>Host</th>
+            <th>Owner Class</th>
+            <th>Status</th>
+            <th></th>
+            <th>Owner Tag</th>
+            <th>Notes</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="triage-body"></tbody>
+        </table>
+      </div>
+      <div class="dim" style="margin-top:10px;font-size:11px">
+        Tags persist at <code id="t-file">$PENTEST_ROOT/asset_tags.json</code>
+      </div>
+    </div>
+
+    <div id="panel-live" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Live Log</h2>
+        </div>
+        <p class="panel-desc">// Streams the scanner's <code>master.log</code> over SSE. Attach during an active scan to follow phase progress in real time.</p>
+      </div>
+      <div class="toolbar">
+        <button id="btn-attach" class="primary">▶ Attach Stream</button>
+        <button id="btn-detach" class="ghost">■ Detach</button>
+        <button id="btn-stop" class="danger">⛔ Stop Scan</button>
+        <span class="dim" id="stream-state">Idle</span>
+      </div>
+      <pre id="live-log" class="terminal"></pre>
+    </div>
+
+    <div id="panel-reports" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Reports</h2>
+        </div>
+        <p class="panel-desc">// Generate the executive or technical HTML report — both include validation summary, ownership breakdown, top risks, and diff sections.</p>
+      </div>
+      <div class="report-actions">
+        <div class="rep-card">
+          <h3>Management Report</h3>
+          <p class="dim">Executive HTML for CISO / CTO. Built from the validated findings.</p>
+          <div class="row">
+            <button id="btn-gen-mgmt" class="primary">⚙ Generate</button>
+            <button id="btn-view-mgmt" class="ghost">↗ Open HTML</button>
+            <button id="btn-pdf-mgmt" class="ghost">↓ PDF</button>
+          </div>
+        </div>
+        <div class="rep-card">
+          <h3>SOC / Technical Report</h3>
+          <p class="dim">Dark terminal report with evidence + remediation per finding.</p>
+          <div class="row">
+            <button id="btn-gen-soc" class="primary">⚙ Generate</button>
+            <button id="btn-view-soc" class="ghost">↗ Open HTML</button>
+            <button id="btn-pdf-soc" class="ghost">↓ PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- New scan modal -->
+<div id="modal" class="modal hidden">
+  <div class="modal-body" style="width:780px;max-width:96vw">
+    <div class="modal-head">
+      <span>New Scan</span>
+      <button id="modal-close" class="ghost">×</button>
+    </div>
+    <form id="new-form">
+      <label>Domains <span class="dim">(comma-separated)</span>
+        <input name="domains" placeholder="example.com, sub.example.com">
+      </label>
+      <label>IP Targets <span class="dim">(IP[:port], comma-separated)</span>
+        <input name="targets" placeholder="1.2.3.4, 5.6.7.8:8080">
+      </label>
+      <div class="row3">
+        <label>Phase
+          <select name="phase">
+            <option value="all" selected>All</option>
+            <option value="1">1 — OSINT</option>
+            <option value="2">2 — DNS</option>
+            <option value="3">3 — Recon</option>
+            <option value="4">4 — TLS</option>
+            <option value="5">5 — Headers</option>
+            <option value="6">6 — WebApp</option>
+            <option value="7">7 — CVE</option>
+            <option value="8">8 — Auth</option>
+            <option value="9">9 — Report</option>
+          </select>
+        </label>
+        <label>Threads<input name="threads" type="number" value="20" min="1" max="200"></label>
+        <label>Rate<input name="rate" type="number" value="50" min="1" max="1000"></label>
+      </div>
+      <label>Tag <span class="dim">(optional, appended to dir name)</span>
+        <input name="name_suffix" placeholder="example">
+      </label>
+
+      <div class="profile-row">
+        <span class="dim" style="font-size:11px;letter-spacing:.06em">Preset profile:</span>
+        <button type="button" class="profile-btn" data-profile="quick"    title="Phase 3-5 only · rate 200 · ~5-10 min">⚡ Quick</button>
+        <button type="button" class="profile-btn active" data-profile="standard" title="All phases · rate 50 · ~60-90 min">▶ Standard</button>
+        <button type="button" class="profile-btn" data-profile="deep"     title="All phases · rate 30 · slower but stealthier · 2+ hours">🐚 Deep</button>
+      </div>
+
+      <div class="row" style="gap:8px;align-items:center">
+        <button type="button" id="btn-discover" class="ghost">🔍 Discover Scope</button>
+        <span class="dim" id="discover-state">Passive enum + light classification before scan.</span>
+      </div>
+
+      <div id="scope-tree-wrap" class="hidden" style="margin-top:8px">
+        <div class="dim" style="font-size:11px;margin-bottom:6px">
+          Discovered hosts grouped by root. Defaults: <strong>owned/saas ✓</strong>,
+          <strong>cdn/internal/external ✗</strong>. Click root checkbox to toggle whole group.
+          Add custom subdomains via the input below each group.
+        </div>
+        <div id="scope-tree" class="scope-tree"></div>
+      </div>
+
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <span class="dim" id="scope-count"></span>
+        <div class="row">
+          <button type="button" id="form-cancel" class="ghost">Cancel</button>
+          <button type="submit" class="primary">▶ Launch</button>
+        </div>
+      </div>
+      <div id="form-msg" class="dim"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Screenshot lightbox modal -->
+<div id="shot-modal" class="modal lightbox hidden">
+  <div class="lightbox-body">
+    <div class="lightbox-head">
+      <div>
+        <div class="lightbox-eyebrow">Visual Evidence</div>
+        <div class="lightbox-title" id="shot-modal-title">Screenshot</div>
+        <div class="lightbox-url" id="shot-modal-meta"></div>
+      </div>
+      <button id="shot-modal-close" class="lightbox-close" aria-label="Close">×</button>
+    </div>
+    <div class="lightbox-frame">
+      <img id="shot-modal-img" alt="">
+    </div>
+  </div>
+</div>
+
+<!-- Delete scan confirm modal -->
+<div id="del-modal" class="modal hidden">
+  <div class="modal-body" style="width:480px">
+    <div class="modal-head">
+      <span>Delete Scan</span>
+      <button id="del-modal-close" class="ghost">×</button>
+    </div>
+    <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+      <div style="color:var(--fg);font-size:13px;line-height:1.55">
+        About to permanently delete this scan and every artifact under it
+        (findings, reports, logs, ownership, recon files). This cannot be
+        undone.
+      </div>
+      <div style="padding:10px 12px;border:1px solid var(--crit);
+                  background:rgba(255,59,92,.06);border-radius:6px">
+        <div class="dim" style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">Scan</div>
+        <div id="del-name" style="font-family:var(--font-mono);color:var(--fg-strong);word-break:break-all"></div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:flex-start;
+                    font-size:12.5px;color:var(--fg-soft);cursor:pointer">
+        <input type="checkbox" id="del-confirm" style="margin-top:3px;width:14px;height:14px">
+        <span>I understand this will permanently delete the scan and cannot be undone.</span>
+      </label>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button type="button" id="del-cancel" class="ghost">Cancel</button>
+        <button type="button" id="del-confirm-btn" class="danger" disabled>✕ Delete Scan</button>
+      </div>
+      <div id="del-msg" class="dim" style="font-size:11px;min-height:14px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Suppress modal -->
+<div id="sup-modal" class="modal hidden">
+  <div class="modal-body">
+    <div class="modal-head">
+      <span>Suppress Finding</span>
+      <button id="sup-modal-close" class="ghost">×</button>
+    </div>
+    <form id="sup-form">
+      <label>Category
+        <input name="category" id="sup-cat" readonly>
+      </label>
+      <label>Scope <span class="dim">(edit to glob-match, e.g. <code>10.20.*</code>)</span>
+        <input name="scope" id="sup-scope">
+      </label>
+      <label>Reason <span class="dim">(required for audit)</span>
+        <input name="reason" placeholder="e.g. accepted internal IP, false positive verified manually" required>
+      </label>
+      <label>Expires <span class="dim">(optional, ISO date)</span>
+        <input name="expires_at" placeholder="2026-12-31">
+      </label>
+      <div class="row" style="justify-content:flex-end">
+        <button type="button" id="sup-cancel" class="ghost">Cancel</button>
+        <button type="submit" class="primary">✕ Add Suppression</button>
+      </div>
+      <div id="sup-msg" class="dim"></div>
+    </form>
+  </div>
+</div>
+
+<footer class="statusbar">
+  <div class="sb-left">
+    <span class="sb-pill" id="sb-conn">● Connected</span>
+    <span class="sb-cell"><span class="sb-key">Scan</span><span class="sb-val" id="sb-scan">—</span></span>
+    <span class="sb-cell"><span class="sb-key">Running</span><span class="sb-val" id="sb-running">0</span></span>
+    <span class="sb-cell"><span class="sb-key">Scans</span><span class="sb-val" id="sb-scans">0</span></span>
+  </div>
+  <div class="sb-right">
+    <span class="sb-cell"><span class="sb-key">V</span><span class="sb-val">0.5</span></span>
+    <span class="sb-cell"><span class="sb-key">UTC</span><span class="sb-val" id="sb-clock">--:--:--</span></span>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

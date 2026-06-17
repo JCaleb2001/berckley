@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Berckley — User Guide</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #050608;
+  --bg-1:      #0a0d11;
+  --bg-2:      #0e1217;
+  --bg-3:      #141921;
+  --line:      #1c232c;
+  --line-soft: #131820;
+  --fg:        #e6ecf2;
+  --fg-strong: #f3f7fb;
+  --fg-soft:   #8694a3;
+  --dim:       #4d5965;
+  --accent:    #00d8ff;
+  --accent-2:  #66e3ff;
+  --accent-3:  #00a3c4;
+  --crit: #ff3b5c;
+  --high: #ff8c1a;
+  --med:  #ffd400;
+  --low:  #6ec1ff;
+  --shadow-card:
+    0 1px 0 rgba(255,255,255,.025) inset,
+    0 0 0 1px var(--line),
+    0 12px 32px rgba(0,0,0,.55);
+  --font-ui:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-display:'Space Grotesk', 'Inter', sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+body {
+  font-family: var(--font-ui);
+  font-size: 14px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(1100px 700px at 12% -10%, rgba(0,216,255,.055), transparent 55%),
+    radial-gradient(900px 600px at 110% 110%, rgba(102,227,255,.030), transparent 55%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='32' viewBox='0 0 28 32'><path d='M14 0l14 8v16L14 32 0 24V8z' fill='none' stroke='%23005a78' stroke-opacity='0.085' stroke-width='0.6'/></svg>"),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.007) 0 1px, transparent 1px 3px);
+  background-attachment: fixed;
+  background-color: var(--bg);
+}
+::selection { background: rgba(0,216,255,.28); color: #fff; }
+html { scroll-behavior: smooth; }
+
+/* Layout */
+.shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.toc {
+  position: sticky; top: 0;
+  height: 100vh; overflow-y: auto;
+  padding: 28px 22px;
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-1), #03060a 80%);
+}
+.toc-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.toc-brand img {
+  width: 40px; height: 40px;
+  filter: drop-shadow(0 0 6px rgba(0,216,255,.4));
+}
+.toc-brand .br {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 18px;
+  background: linear-gradient(180deg, #fff, #b9d8e6);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.toc-brand .tag {
+  font-family: var(--font-mono);
+  font-size: 10px; color: var(--accent); opacity: .8;
+  letter-spacing: .04em; text-transform: uppercase;
+  margin-top: 2px;
+}
+.toc h4 {
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--fg-soft);
+  margin: 18px 0 6px 0;
+}
+.toc a {
+  display: block;
+  padding: 5px 10px;
+  font-size: 13px;
+  color: var(--fg-soft);
+  text-decoration: none;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  margin: 1px 0;
+  transition: color .12s var(--ease), background .12s var(--ease);
+}
+.toc a:hover { color: var(--fg); background: rgba(0,216,255,.04); border-left-color: rgba(0,216,255,.3); }
+.toc a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,216,255,.05); }
+
+/* Main content */
+.content {
+  padding: 48px 56px 96px 56px;
+  max-width: 920px;
+}
+.hero {
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: .14em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: 44px; font-weight: 700;
+  letter-spacing: -.02em;
+  margin: 0 0 12px 0;
+  color: var(--fg-strong);
+}
+.hero p {
+  font-size: 16px;
+  color: var(--fg-soft);
+  max-width: 680px;
+  margin: 0;
+}
+
+/* Section headers — same pattern as dashboard panels */
+section { margin-bottom: 56px; scroll-margin-top: 12px; }
+.sec-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.sec-head .prompt {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  text-shadow: 0 0 10px var(--accent);
+}
+.sec-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 26px;
+  letter-spacing: -.015em;
+  color: var(--fg-strong);
+}
+.sec-desc {
+  margin: 0 0 24px 32px;
+  color: var(--fg-soft);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.sec-desc::before { content: "// "; color: var(--accent-3); }
+
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 18px;
+  letter-spacing: -.005em;
+  color: var(--fg-strong);
+  margin: 28px 0 10px 0;
+}
+
+p { color: var(--fg); margin: 0 0 14px 0; }
+.muted { color: var(--fg-soft); }
+
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { color: var(--accent); text-decoration: underline; }
+
+ol, ul { padding-left: 22px; margin: 0 0 16px 0; }
+li { margin-bottom: 8px; }
+li::marker { color: var(--accent); }
+
+code {
+  font-family: var(--font-mono); font-size: 12.5px;
+  padding: 1px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  color: var(--accent-2);
+}
+pre {
+  font-family: var(--font-mono);
+  background: #02060a;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px 18px;
+  overflow-x: auto;
+  margin: 14px 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--accent-2);
+}
+pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+
+/* Cards / callouts */
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin: 18px 0;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  box-shadow: var(--shadow-card);
+}
+.card h3 { margin-top: 0; }
+.callout {
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  margin: 16px 0;
+  background: rgba(0,216,255,.04);
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+}
+.callout.warn { border-left-color: var(--high); background: rgba(255,140,26,.04); }
+.callout.crit { border-left-color: var(--crit); background: rgba(255,59,92,.04); }
+.callout strong { color: var(--accent); font-weight: 600; }
+.callout.warn strong { color: var(--high); }
+.callout.crit strong { color: var(--crit); }
+
+/* Tabs reference table */
+.tab-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.tab-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.tab-card .name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--accent);
+}
+.tab-card .when {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-soft);
+  margin-top: 4px;
+}
+.tab-card .body { font-size: 13px; }
+.tab-card .body p:last-child { margin-bottom: 0; }
+
+/* Severity / class tags inline */
+.tag {
+  display: inline-block;
+  padding: 1px 7px;
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .04em;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.tag.crit { color: var(--crit); }
+.tag.high { color: var(--high); }
+.tag.med  { color: var(--med); }
+.tag.low  { color: var(--low); }
+.tag.owned { color: var(--accent); }
+.tag.saas { color: #b47bff; }
+.tag.cdn { color: #ff8cce; }
+.tag.cloud { color: var(--high); }
+.tag.internal, .tag.unknown, .tag.external { color: var(--fg-soft); }
+
+/* Workflow diagram */
+.flow {
+  display: flex; align-items: stretch;
+  gap: 0;
+  margin: 22px 0;
+  flex-wrap: wrap;
+}
+.flow-step {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  position: relative;
+  text-align: center;
+}
+.flow-step .num {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: .12em;
+  margin-bottom: 4px;
+}
+.flow-step .lbl {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--fg-strong);
+}
+.flow-arrow {
+  align-self: center;
+  color: var(--accent);
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+/* Buttons (visual reference) */
+.btn-sample {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 216, 255, .35);
+  border-radius: 6px;
+  color: var(--accent);
+  font-weight: 600;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  background: linear-gradient(180deg, rgba(0,216,255,.12), rgba(0,216,255,.03)), var(--bg-2);
+  letter-spacing: -.005em;
+  margin: 2px 4px;
+  vertical-align: middle;
+}
+.btn-sample.ghost {
+  color: var(--fg-soft);
+  background: transparent;
+  border-color: var(--line);
+}
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-2);
+  color: var(--fg-strong);
+}
+
+/* Two-col layout for tips */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .toc { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .content { padding: 32px 24px; }
+  .two-col { grid-template-columns: 1fr; }
+  .tab-card { grid-template-columns: 1fr; }
+}
+
+footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Table of Contents ─────────────────────────────────────────────── -->
+  <aside class="toc">
+    <div class="toc-brand">
+      <img src="/logo.png" alt="Berckley" onerror="this.style.display='none'">
+      <div>
+        <div class="br">Berckley</div>
+        <div class="tag">User Guide</div>
+      </div>
+    </div>
+
+    <h4>Get Started</h4>
+    <a href="#welcome">Welcome</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="#launching">Launching a Scan</a>
+
+    <h4>The Console</h4>
+    <a href="#tabs">Tabs Reference</a>
+    <a href="#workflow">Recommended Workflow</a>
+    <a href="#reports">Generating Reports</a>
+
+    <h4>Common Tasks</h4>
+    <a href="#tasks">How To…</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#glossary">Glossary</a>
+  </aside>
+
+  <!-- ── Main Content ──────────────────────────────────────────────────── -->
+  <main class="content">
+
+    <!-- Hero -->
+    <header class="hero" id="welcome">
+      <div class="hero-eyebrow">/ User guide · v0.6</div>
+      <h1>External Pentest, From Domain to Report.</h1>
+      <p>Berckley is an external attack-surface scanner with a built-in
+      validation layer that filters false positives, classifies every host by
+      ownership, ranks findings by contextual risk, and ships executive +
+      technical HTML reports. This guide walks you from a fresh install to your
+      first signed-off report — assume nothing.</p>
+    </header>
+
+    <!-- Quick Start -->
+    <section id="quickstart">
+      <div class="sec-head"><span class="prompt">›</span><h2>Quick Start</h2></div>
+      <p class="sec-desc">If you're allergic to docs, here are the five clicks that get you a real report.</p>
+
+      <div class="flow">
+        <div class="flow-step"><div class="num">01</div><div class="lbl">New Scan</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="num">02</div><div class="lbl">Wait</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="num">03</div><div class="lbl">Validate</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="num">04</div><div class="lbl">Review</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="num">05</div><div class="lbl">Generate Report</div></div>
+      </div>
+
+      <ol>
+        <li>Open the dashboard at <code>http://127.0.0.1:8080</code>.</li>
+        <li>Click <span class="btn-sample">+ New Scan</span> in the top right.</li>
+        <li>Type one or more <strong>domains</strong> (e.g. <code>example.com</code>), leave defaults
+            for everything else, click <span class="btn-sample">▶ Launch</span>. The dashboard jumps to <em>Live Log</em> so you can watch the scan run.</li>
+        <li>When the scan finishes (≈30–90 min depending on attack surface),
+            click your scan in the sidebar and hit <span class="btn-sample">▶ Run</span> next to "Validation" on the Overview tab.</li>
+        <li>Open the <em>Reports</em> tab and click <span class="btn-sample">⚙ Generate</span> on the report you want.
+            <span class="btn-sample ghost">↗ Open</span> shows it in a new tab.</li>
+      </ol>
+    </section>
+
+    <!-- Launching -->
+    <section id="launching">
+      <div class="sec-head"><span class="prompt">›</span><h2>Launching a Scan</h2></div>
+      <p class="sec-desc">Detailed flow with all the knobs.</p>
+
+      <h3>The New Scan modal</h3>
+      <p>Click <span class="btn-sample">+ New Scan</span>. You'll get a form with:</p>
+
+      <div class="card">
+        <p><strong>Domains</strong> — One or more comma-separated root domains
+        (<code>example.com, sub.example.com</code>). The scanner will independently enumerate
+        subdomains during recon, so providing just the apex is usually enough.</p>
+
+        <p><strong>IP Targets</strong> — Optional. Comma-separated <code>IP[:port]</code> entries for
+        when you also want raw IPs scanned (e.g. <code>1.2.3.4, 5.6.7.8:8443</code>).</p>
+
+        <p><strong>Phase</strong> — Leave on <code>All</code> for a full scan. Pick a single number
+        if you want to re-run only a part. Phases are:</p>
+        <ul>
+          <li><code>1</code> OSINT (passive intel: WHOIS, GitHub orgs, Azure AD tenants, paste leaks)</li>
+          <li><code>2</code> DNS (records, AXFR, DKIM selectors, MTA-STS, SPF, DMARC, takeover fingerprints)</li>
+          <li><code>3</code> Recon (subdomain enum, masscan, vhosts, IIS tilde, WAF detect, sensitive files)</li>
+          <li><code>4</code> TLS (cert chain, ciphers, OCSP, hostname match)</li>
+          <li><code>5</code> Headers (HSTS, CSP, X-Frame, X-Content-Type, etc.)</li>
+          <li><code>6</code> WebApp (SAP, VPN portals, cache poisoning, katana crawl, arjun, SSTI,
+              Firebase, lookalikes, S3/Azure/GCS buckets, JS secret mining,
+              Docker/K8s exposure, NoSQL/cache without auth)</li>
+          <li><code>7</code> CVE (nuclei against the live host list)</li>
+          <li><code>8</code> Auth (admin panels, default creds)</li>
+          <li><code>9</code> Report (consolidates the findings TSV)</li>
+        </ul>
+
+        <p><strong>Threads / Rate</strong> — Concurrency and req/s limit. Defaults
+        (<code>20</code> / <code>50</code>) are conservative. Bump rate to <code>100</code> if you
+        own the target and don't worry about WAF blocking.</p>
+
+        <p><strong>Tag</strong> — Optional. Appended to the scan directory name and shown in
+        the sidebar (e.g. <em>"Scan Report · 2026-05-25 14:30 · prod-audit"</em>).</p>
+      </div>
+
+      <h3>Optional: Discover Scope first</h3>
+      <p>Before launching, click <span class="btn-sample ghost">🔍 Discover Scope</span>. The dashboard
+      runs a fast passive pre-flight (DNS + crt.sh + lightweight CNAME classification) and
+      shows a collapsible tree of every subdomain it found, grouped by root, with the
+      ownership class pre-labeled. Defaults are sensible:</p>
+      <ul>
+        <li><span class="tag owned">Owned</span> and <span class="tag saas">SaaS</span> ✓ checked by default</li>
+        <li><span class="tag cdn">Cdn</span>, <span class="tag internal">Internal</span>, <span class="tag external">External</span> ✗ unchecked (provider-managed or not yours)</li>
+        <li>Hosts that don't resolve are unchecked + struck through</li>
+      </ul>
+      <p>Tweak the boxes, add custom subdomains via the <strong>+ add</strong> input under each root,
+      then click <span class="btn-sample">▶ Launch</span>. The dashboard writes your curated list
+      to <code>scope.txt</code> inside the scan directory and the scanner uses that as input.</p>
+
+      <div class="callout">
+        <strong>Tip.</strong> If <code>crt.sh</code> is unreachable (it's frequently flaky), the dashboard
+        falls back to subdomain lists from <em>previous scans of the same root</em> on the host.
+        First-time scans against a new domain might return no discovery — that's fine,
+        launch with just the root and the scanner's own enum will fill the gap.
+      </div>
+
+      <h3>While the scan runs</h3>
+      <p>The dashboard switches you to <em>Live Log</em> with an active SSE stream of the
+      scanner's <code>master.log</code>. Color codes:</p>
+      <ul>
+        <li><span class="tag crit">[CRITICAL]</span> / <span class="tag high">[HIGH]</span> / <span class="tag med">[MEDIUM]</span> / <span class="tag low">[LOW]</span> — finding emitted</li>
+        <li><code>[+]</code> ok step / <code>[*]</code> info / <code>[&gt;]</code> sub-step / <code>[!]</code> warning / <code>[-]</code> error</li>
+      </ul>
+
+      <div class="callout warn">
+        <strong>Don't rebuild the Docker container while a scan is running.</strong>
+        The scanner runs as a child of the dashboard process; rebuilding kills it
+        mid-flight. Findings already written to <code>findings.tsv</code> survive, but
+        the scan will be incomplete.
+      </div>
+    </section>
+
+    <!-- Tabs Reference -->
+    <section id="tabs">
+      <div class="sec-head"><span class="prompt">›</span><h2>Tabs Reference</h2></div>
+      <p class="sec-desc">What each tab shows, when you'd open it, and what to look for.</p>
+
+      <div class="tab-grid">
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Overview</div>
+            <div class="when">Open first, always.</div>
+          </div>
+          <div class="body">
+            <p>Posture at a glance. A headline <strong>Security Posture Score</strong>
+            (0–100 with an <strong>A–F grade</strong>), four big severity tiles, a banner showing
+            validation deltas (<em>"raw 173 → 162, −11"</em>), a <strong>Findings by Security
+            Domain</strong> card row, and a <strong>Top Hosts by Risk</strong>
+            table sorted by the contextual scoring formula
+            <code>severity × exploitability × ownership × host criticality</code>.</p>
+            <p>The score is <code>100 − (45·C + 18·H + 6·M + 1.5·L)</code> over the validated
+            findings (100 = clean); an open CRITICAL caps the grade at D, an open HIGH at B.
+            Click any domain card to jump to the Findings tab filtered by that domain.</p>
+            <p>The little <span class="btn-sample">▶ Run</span> button next to "Validation"
+            triggers the false-positive filter + ownership classification + persistent
+            suppression list. <strong>Run it before doing anything else with the scan results.</strong></p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Findings</div>
+            <div class="when">Day-to-day analyst view.</div>
+          </div>
+          <div class="body">
+            <p>Every issue the scanner produced, optionally filtered. Columns: severity,
+            risk score (color-coded), category, scope, owner tag, description, and a
+            <span class="btn-sample ghost" style="padding:2px 8px;font-size:11px">✕</span> button
+            to suppress as false positive.</p>
+            <p>Toolbar offers: full-text filter, severity chips, ownership chips,
+            <strong>security-domain chips</strong> (Network, Crypto/TLS, Web App, Email/DNS, Cloud,
+            Secrets, Access Control — each finding also shows a colored domain badge), a
+            <strong>Show Raw (Pre-Validation)</strong> toggle to compare against unfiltered scanner
+            output, and <strong>Sort by Risk</strong> to put the most actionable items at the top.</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Validation</div>
+            <div class="when">When you want to know <em>why</em>.</div>
+          </div>
+          <div class="body">
+            <p>Audit trail for every rule decision: which findings were
+            <span class="tag low">suppressed</span> as confirmed false positives, which were
+            <span class="tag med">downgraded</span> because the host is on third-party infra, and
+            <em>why</em>. Filter by verdict, see the rule name + reason per row.</p>
+            <p>Rules in order: <code>user-suppression</code> (your allowlist),
+            <code>rfc1918-not-external</code>, <code>snmp-reverify</code>,
+            <code>email-auth-no-mx</code>, <code>cert-mismatch-cname-to-saas</code>,
+            <code>ownership-infra</code>.</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Ownership</div>
+            <div class="when">"Whose infra is this?"</div>
+          </div>
+          <div class="body">
+            <p>Every host classified as
+            <span class="tag owned">Owned</span>, <span class="tag saas">Saas</span>,
+            <span class="tag cdn">Cdn</span>, <span class="tag cloud">Cloud_shared</span>,
+            <span class="tag internal">Internal</span>, <span class="tag external">External</span>,
+            or <span class="tag unknown">Unknown</span> — with provider (Microsoft, Cloudflare,
+            etc.), IP, ASN, and the evidence the classifier used (CNAME suffix, WHOIS Org,
+            ASN match, or root-domain match).</p>
+            <p>Use the class chips to filter. Findings on third-party infra are
+            automatically downgraded by the validation rule, but this tab shows you
+            the full per-host picture.</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Suppressions</div>
+            <div class="when">After the first review pass.</div>
+          </div>
+          <div class="body">
+            <p>The persistent allowlist of accepted false positives. Entries survive
+            re-runs and re-validation; the file lives on disk at
+            <code>$PENTEST_ROOT/suppressions.json</code>.</p>
+            <p>Add entries by clicking the ✕ on any finding row — the modal pre-fills
+            <strong>category</strong> and <strong>scope</strong>. Edit <strong>scope</strong> to use a glob
+            (e.g. <code>*.example.com</code> or <code>10.20.*</code>) to match many findings with one
+            entry. <strong>Reason</strong> is required for audit. <strong>Expires</strong> is optional
+            ISO date (e.g. <code>2026-12-31</code>) for time-boxed acceptance.</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Diff</div>
+            <div class="when">Recurring engagements.</div>
+          </div>
+          <div class="body">
+            <p>Compare two runs. Auto-picks the most recent prior scan with overlapping
+            input domains; pick manually with the dropdown if you want a specific
+            baseline.</p>
+            <p>Buckets: <strong>New</strong> (regressions / fresh exposure),
+            <strong>Fixed</strong> (closed since previous), <strong>Changed</strong> (severity moved),
+            <strong>Unchanged</strong>. Severity delta cards at the top show net movement
+            per severity tier (e.g. <code>CRITICAL −11, HIGH −19</code>).</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Assets</div>
+            <div class="when">Recon deep-dive.</div>
+          </div>
+          <div class="body">
+            <p>Raw inventory of everything the scanner discovered, grouped by type:
+            <code>SUBDOMAINS</code>, <code>ASN</code>, <code>CRAWL</code> (URLs found),
+            <code>GITHUB</code> (public repos in the org), <code>AZURE_AD</code> (M365 tenant IDs),
+            <code>FEDERATED_AUTH</code> (SSO endpoints), <code>TECH_VERSION</code>, and more.</p>
+            <p>Use the type chips to drill into one category at a time. Good for
+            understanding the scope of what you're testing.</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Extract</div>
+            <div class="when">Handing data to other tools.</div>
+          </div>
+          <div class="body">
+            <p>Export the identified host list to feed other tools:
+            <strong>TXT</strong> (one host per line — drop into <code>nmap -iL</code>,
+            <code>nuclei -l</code>, <code>ffuf -w</code>, <code>httpx -l</code>),
+            <strong>CSV</strong> (with ownership + findings count + max severity),
+            or <strong>JSON</strong> (structured for scripts and dashboards).</p>
+            <p>Filter by ownership class (e.g. only <span class="tag owned">Owned</span>), toggle
+            <strong>Only Hosts With Findings</strong> to skip empty rows. Buttons:
+            <span class="btn-sample ghost">⧉ Copy</span> (clipboard) or
+            <span class="btn-sample">↓ Download</span>.</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Live Log</div>
+            <div class="when">During an active scan.</div>
+          </div>
+          <div class="body">
+            <p>Streams the scanner's <code>master.log</code> in real time over SSE. Colorized
+            by line prefix. Use <span class="btn-sample">▶ Attach Stream</span> if it
+            disconnected, <span class="btn-sample ghost">■ Detach</span> to pause output, and
+            <span class="btn-sample" style="color:var(--crit);border-color:rgba(255,59,92,.35)">⛔ Stop Scan</span>
+            to SIGTERM the running scanner (everything written to disk so far is preserved).</p>
+          </div>
+        </div>
+
+        <div class="tab-card">
+          <div>
+            <div class="name">Reports</div>
+            <div class="when">When you're ready to share.</div>
+          </div>
+          <div class="body">
+            <p>Two HTML reports, both built from <em>validated</em> data:</p>
+            <ul>
+              <li><strong>Management Report</strong> — executive layout (serif navy
+              consultancy look), severity summary, ownership breakdown, top risks
+              with quick wins, change-since-previous-engagement section.</li>
+              <li><strong>SOC / Technical Report</strong> — modern hacker layout matching
+              the dashboard, detailed finding cards with evidence + remediation, raw
+              TSV preserved at the end for audit.</li>
+            </ul>
+            <p><span class="btn-sample">⚙ Generate</span> rebuilds the HTML from current data
+            (re-run any time after re-validation). <span class="btn-sample ghost">↗ Open</span>
+            opens it in a new tab; the file downloads with a friendly date-based name
+            (e.g. <code>Scan_Report_2026-05-17_example_soc.html</code>).</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Workflow -->
+    <section id="workflow">
+      <div class="sec-head"><span class="prompt">›</span><h2>Recommended Workflow</h2></div>
+      <p class="sec-desc">The path that minimizes noise and produces a defensible report.</p>
+
+      <ol>
+        <li><strong>Launch the scan</strong> with full phases (<code>All</code>). Walk away — 30 to 90 min.</li>
+        <li><strong>Run Validation</strong> from the Overview tab. ~15–30 s. This step:
+          <ul>
+            <li>Re-probes SNMP findings (drops scan-time false positives)</li>
+            <li>Classifies every host's ownership via WHOIS + CNAME suffix matching</li>
+            <li>Applies your persistent suppression list (<code>suppressions.json</code>)</li>
+            <li>Downgrades infra findings on third-party SaaS / CDN / cloud-shared</li>
+            <li>Writes <code>findings_validated.tsv</code> + <code>findings_audit.tsv</code> + <code>ownership.tsv</code></li>
+          </ul>
+        </li>
+        <li><strong>Review the Findings tab</strong> sorted by risk. Top 10 hosts on Overview
+            point you at the highest-value items.</li>
+        <li><strong>Triage</strong>: click ✕ on confirmed false positives → write the reason →
+            they vanish from the validated view and persist in <code>suppressions.json</code>
+            for future runs.</li>
+        <li><strong>Run Validation again</strong> so your new suppressions take effect.</li>
+        <li><strong>Generate the Reports</strong>. Send the Management one to the customer
+            and keep the SOC one for the analyst handoff.</li>
+        <li><em>(Next engagement)</em> The Diff tab will compare automatically — focus
+            attention on the <strong>New</strong> bucket.</li>
+      </ol>
+    </section>
+
+    <!-- Reports -->
+    <section id="reports">
+      <div class="sec-head"><span class="prompt">›</span><h2>Generating Reports</h2></div>
+      <p class="sec-desc">Two outputs, same data, different audiences.</p>
+
+      <div class="two-col">
+
+        <div class="card">
+          <h3>Management Report</h3>
+          <p class="muted">For: CISO, CTO, board, customer execs.</p>
+          <ul>
+            <li>Consultancy-style serif navy theme</li>
+            <li>Executive summary with finding counts</li>
+            <li>Ownership breakdown (owned vs third-party)</li>
+            <li>Top risks + quick wins</li>
+            <li>Change-since-previous-engagement section</li>
+            <li>No raw evidence — clean narrative</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>SOC / Technical Report</h3>
+          <p class="muted">For: SOC analysts, blue team, IT.</p>
+          <ul>
+            <li>Modern hacker / terminal theme (matches dashboard)</li>
+            <li>Detailed finding card per category</li>
+            <li>Affected scopes as severity-colored pills</li>
+            <li>Per-category verify command + remediation guidance</li>
+            <li>Raw findings TSV preserved at the end for audit</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <p>Both reports:</p>
+      <ul>
+        <li>Read <code>findings_validated.tsv</code> when present (fall back to raw <code>findings.tsv</code>)</li>
+        <li>Include 4 injected sections: <strong>Validation Summary</strong>, <strong>Asset Ownership Breakdown</strong>,
+            <strong>Risk-Weighted View</strong>, <strong>Change Since Previous Engagement</strong>.
+            Each section auto-skips if its data isn't available.</li>
+        <li>Download with date-based filename
+            (<code>Scan_Report_2026-05-17_example_management.html</code>).</li>
+      </ul>
+    </section>
+
+    <!-- How To -->
+    <section id="tasks">
+      <div class="sec-head"><span class="prompt">›</span><h2>How To…</h2></div>
+      <p class="sec-desc">Common tasks, short answers.</p>
+
+      <h3>Suppress a false positive</h3>
+      <ol>
+        <li>Open <strong>Findings</strong>, locate the finding row.</li>
+        <li>Click the <span class="btn-sample ghost" style="padding:2px 8px;font-size:11px">✕</span>
+            button at the end of the row.</li>
+        <li>Modal pre-fills category and scope. Edit scope to a glob if you want it
+            to match many findings (<code>*.example.com</code>, <code>10.20.*</code>,
+            <code>?</code> for single-char wildcard).</li>
+        <li>Write a reason (required for audit). Optionally set an expiry date.</li>
+        <li>Click <span class="btn-sample">✕ Add Suppression</span>, then go to <strong>Overview</strong> and
+            click <span class="btn-sample">▶ Run</span> on Validation to re-apply.</li>
+      </ol>
+
+      <h3>Filter findings by ownership</h3>
+      <p>On the <strong>Findings</strong> tab, click any ownership chip
+      (<span class="tag owned">Owned</span>, <span class="tag saas">Saas</span>, etc.) to narrow
+      the table. Multi-select supported — clicking another chip ANDs them.
+      To see findings on infrastructure you actually control, click only
+      <span class="tag owned">Owned</span>.</p>
+
+      <h3>Export hosts to feed other tools</h3>
+      <ol>
+        <li>Open <strong>Extract</strong>.</li>
+        <li>Pick ownership classes (e.g. <span class="tag owned">Owned</span> only).</li>
+        <li>Toggle <strong>Only Hosts With Findings</strong> if you want to skip empty hosts.</li>
+        <li>Pick a format: <strong>TXT</strong> for tool input, <strong>CSV</strong> for spreadsheets,
+            <strong>JSON</strong> for scripts.</li>
+        <li>Click <span class="btn-sample ghost">⧉ Copy</span> or <span class="btn-sample">↓ Download</span>.</li>
+      </ol>
+      <pre><code># Example: feed Berckley's TXT export to nuclei
+curl -s 'http://127.0.0.1:8080/api/scans/&lt;scan-name&gt;/extract?format=txt&owner_class=OWNED' \
+  > targets.txt
+nuclei -l targets.txt -severity high,critical</code></pre>
+
+      <h3>Compare against a previous scan</h3>
+      <p>Open <strong>Diff</strong>. Leave the dropdown on <em>auto</em> for the most recent prior
+      scan with overlapping domains, or pick one manually. Click
+      <span class="btn-sample">▶ Run Diff</span>. Read the severity-delta cards first
+      (e.g. <code>HIGH −19</code> = good), then drill into the <strong>New</strong> bucket for fresh
+      exposure.</p>
+
+      <h3>Re-run only one phase</h3>
+      <p>In the New Scan modal, set <strong>Phase</strong> to a single number (e.g. <code>6</code> for
+      WebApp). Useful when you've added a new check and want to test against an
+      existing recon dataset without re-doing the slow parts.</p>
+
+      <h3>Stop a runaway scan</h3>
+      <p>Open the running scan, go to <strong>Live Log</strong>, click
+      <span class="btn-sample" style="color:var(--crit);border-color:rgba(255,59,92,.35)">⛔ Stop Scan</span>.
+      Everything written to disk is preserved (findings, assets, recon files).</p>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section id="troubleshooting">
+      <div class="sec-head"><span class="prompt">›</span><h2>Troubleshooting</h2></div>
+      <p class="sec-desc">The most common landmines and how to step around them.</p>
+
+      <div class="card">
+        <h3>"Launch failed: 500 Internal Server Error"</h3>
+        <p>Older builds had an asyncio bug in the launch endpoint. Update to the latest
+        image (<code>docker compose up --build -d</code>) — the launch endpoint is now
+        <code>async</code> and uses <code>asyncio.create_task</code>.</p>
+        <p class="muted">Note: even when the API returned 500, the scan often started anyway
+        (Popen fired before the error). Check the sidebar — if you see a recent
+        <code>pentest_*</code> entry, that scan is running. Stop it via Live Log if you don't
+        want it.</p>
+      </div>
+
+      <div class="card">
+        <h3>The Discover Scope returns 0 subdomains</h3>
+        <p><code>crt.sh</code> is frequently flaky (502, timeout). The pre-flight retries 3 times
+        then falls back to subdomain data from prior scans of the same root. First-time
+        scans against a new domain may show 0 — just launch with the root only and the
+        scanner's own enum will find them during phase 3.</p>
+      </div>
+
+      <div class="card">
+        <h3>The Live Log stream disconnects</h3>
+        <p>SSE timeouts behind proxies are common. Click
+        <span class="btn-sample">▶ Attach Stream</span> to reconnect. The full log is
+        always on disk at <code>&lt;scan-dir&gt;/report/master.log</code> if you'd rather
+        <code>tail -f</code> it.</p>
+      </div>
+
+      <div class="card">
+        <h3>Validation takes ~20s</h3>
+        <p>Normal. It does parallel <code>whois</code> + DNS + (optionally)
+        <code>snmpget</code> probes for every unique host in the findings TSV. The result is
+        cached in <code>report/ownership.tsv</code>, so subsequent reads are instant — only
+        re-runs re-probe.</p>
+      </div>
+
+      <div class="card">
+        <h3>I rebuilt the container and lost a running scan</h3>
+        <p>Expected. The scanner is a child process of the dashboard container; rebuild =
+        SIGTERM. Findings already written to <code>findings.tsv</code> survive (the file is
+        on the host-mounted volume). To resume, re-run a single phase via the
+        <strong>Phase</strong> selector to fill the gap.</p>
+      </div>
+
+      <div class="card">
+        <h3>Old scan directories accumulate</h3>
+        <p>They're plain dirs under <code>$PENTEST_ROOT</code> (the repo root by default).
+        <code>rm -rf pentest_xyz</code> to clean. If the container ran as root, you may need
+        <code>sudo</code>.</p>
+      </div>
+    </section>
+
+    <!-- Glossary -->
+    <section id="glossary">
+      <div class="sec-head"><span class="prompt">›</span><h2>Glossary</h2></div>
+      <p class="sec-desc">Vocabulary that shows up across the UI and reports.</p>
+
+      <div class="card">
+        <p><strong>Finding</strong> — A single issue the scanner identified, with severity,
+        category, scope (host/URL/IP), and description. Stored as one tab-separated
+        line in <code>findings.tsv</code>.</p>
+
+        <p><strong>Scope</strong> — The host, URL, IP, or port this finding applies to.</p>
+
+        <p><strong>Validation</strong> — Post-scan pass that filters false positives and
+        re-weights findings. Produces <code>findings_validated.tsv</code> +
+        <code>findings_audit.tsv</code>.</p>
+
+        <p><strong>Ownership class</strong> — Who controls the host's infrastructure.
+        <span class="tag owned">Owned</span> = you, <span class="tag saas">Saas</span> = SaaS tenant
+        (M365, Heroku…), <span class="tag cdn">Cdn</span> = edge,
+        <span class="tag cloud">Cloud_shared</span> = shared cloud IP,
+        <span class="tag internal">Internal</span> = RFC1918,
+        <span class="tag external">External</span> = third-party domain,
+        <span class="tag unknown">Unknown</span> = couldn't decide.</p>
+
+        <p><strong>Suppression</strong> — A persistent allowlist entry that hides a
+        finding from the validated view across runs. Lives in
+        <code>suppressions.json</code>.</p>
+
+        <p><strong>Risk score</strong> — <code>severity × exploitability × ownership × host_criticality</code>.
+        Surfaces the items worth fixing first.</p>
+
+        <p><strong>Security domain</strong> — The one top-level category a finding belongs to:
+        Network &amp; Infrastructure, Cryptography &amp; TLS, Web Application Security,
+        Email &amp; DNS Security, Cloud &amp; Storage Exposure, Secrets &amp; Info Disclosure,
+        or Access Control &amp; Auth. Single membership, deterministic. Defined in
+        <code>taxonomy.py</code>; used for the Overview cards, Findings filter, and reports.</p>
+
+        <p><strong>Posture score / grade</strong> — A 0–100 report-card score for the whole scan
+        (100 = clean), with a letter grade: <code>A</code> 90+, <code>B</code> 80+, <code>C</code> 70+,
+        <code>D</code> 60+, <code>F</code> &lt;60. Computed as
+        <code>100 − (45·C + 18·H + 6·M + 1.5·L)</code> over validated findings, with severity
+        ceilings (open CRITICAL ⇒ max D, open HIGH ⇒ max B). Defined in <code>scorecard.py</code>.</p>
+
+        <p><strong>Live host</strong> — A host that responded to HTTP/HTTPS during recon.
+        Listed in <code>recon/live_hosts.txt</code>.</p>
+
+        <p><strong>Scan directory</strong> — Per-scan output folder named
+        <code>pentest_&lt;tag&gt;_YYYYMMDD_HHMMSS</code>, with subdirs for each phase
+        (<code>osint/</code>, <code>dns/</code>, <code>recon/</code>, <code>tls/</code>,
+        <code>headers/</code>, <code>webapp/</code>, <code>cve/</code>, <code>auth/</code>,
+        <code>cloud/</code>, <code>report/</code>, <code>assets/</code>).</p>
+      </div>
+    </section>
+
+    <footer>
+      // Berckley · External Pentest Console · User Guide v0.6 · Generated for analysts who'd rather skip the docs.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+// Highlight current section in TOC as you scroll
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+function syncToc() {
+  const y = window.scrollY + 100;
+  let cur = null;
+  for (const s of sections) {
+    if (s.offsetTop <= y) cur = s.id;
+  }
+  tocLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + cur));
+}
+window.addEventListener('scroll', syncToc, { passive: true });
+syncToc();
+</script>
+
+</body>
+</html>
