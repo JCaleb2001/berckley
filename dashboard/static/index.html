@@ -49,6 +49,7 @@
 
     <nav class="tabs">
       <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="suppliers">Suppliers</button>
       <button class="tab" data-tab="findings">Findings</button>
       <button class="tab" data-tab="audit">Validation</button>
       <button class="tab" data-tab="ownership">Ownership</button>
@@ -157,6 +158,29 @@
             <table class="data" id="tbl-scopes"><tbody></tbody></table>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="panel-suppliers" class="panel">
+      <div class="panel-head">
+        <div class="panel-head-main">
+          <span class="panel-prompt">›</span>
+          <h2 class="panel-title">Suppliers</h2>
+        </div>
+        <p class="panel-desc">// Passive third-party / vendor assessment — outside-in only. OSINT, DNS/email, certificate transparency, passive discovery and browser-level TLS/header checks. No brute-force, port-scan, fuzzing, nuclei or auth tests.</p>
+      </div>
+      <div class="sup-addbar">
+        <input id="sup-name" placeholder="Supplier name (e.g. Acme Corp)" />
+        <input id="sup-domain" placeholder="Domain(s), comma-separated (e.g. acme.com)" />
+        <button id="sup-add" class="primary">▶ Assess Supplier (passive)</button>
+        <span class="dim" id="sup-add-state"></span>
+      </div>
+      <div id="sup-empty" class="empty">No suppliers assessed yet. Add one above to launch a passive outside-in scan.</div>
+      <div class="table-wrap" id="sup-wrap" style="display:none">
+        <table class="data">
+          <thead><tr><th>Grade</th><th>Score</th><th>Supplier</th><th>Domain</th><th>Domains of risk</th><th>Findings</th><th>Last assessed</th><th></th></tr></thead>
+          <tbody id="sup-body"></tbody>
+        </table>
       </div>
     </div>
 

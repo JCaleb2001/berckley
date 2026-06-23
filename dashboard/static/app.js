@@ -23,6 +23,7 @@ window.addEventListener("DOMContentLoaded", () => {
   bindTabs();
   bindHeader();
   bindModal();
+  bindSuppliers();
   bindFindings();
   bindAudit();
   bindOwnership();
@@ -392,6 +393,7 @@ function bindTabs() {
       $$(".panel").forEach(x => x.classList.remove("active"));
       t.classList.add("active");
       $(`#panel-${t.dataset.tab}`).classList.add("active");
+      if (t.dataset.tab === "suppliers") loadSuppliers();  // portfolio — no scan selection needed
       if (!state.selected) return;
       if (t.dataset.tab === "findings") loadFindings();
       if (t.dataset.tab === "audit") loadAudit();
@@ -482,6 +484,76 @@ function bindModal() {
       $("#form-msg").textContent = `launch failed: ${err.message}`;
     }
   };
+}
+
+// ─── Suppliers (passive third-party assessment) ──────────────────────────────
+function bindSuppliers() {
+  const btn = $("#sup-add");
+  if (!btn) return;
+  btn.onclick = async () => {
+    const name = $("#sup-name").value.trim();
+    const domain = $("#sup-domain").value.trim();
+    if (!domain) { $("#sup-add-state").textContent = "enter a domain"; return; }
+    btn.disabled = true;
+    $("#sup-add-state").textContent = "launching passive assessment...";
+    try {
+      const r = await api("/api/scans", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({domains: domain, passive: true, supplier_name: name}),
+      });
+      $("#sup-add-state").textContent = `▶ assessing: ${r.name}`;
+      $("#sup-name").value = ""; $("#sup-domain").value = "";
+      setTimeout(async () => {
+        await refresh(false);
+        selectScan(r.name);
+        $$(".tab").forEach(x => x.classList.remove("active"));
+        $$(".panel").forEach(x => x.classList.remove("active"));
+        $(`.tab[data-tab=live]`).classList.add("active");
+        $(`#panel-live`).classList.add("active");
+        attachStream();
+        $("#sup-add-state").textContent = "";
+      }, 600);
+    } catch (err) {
+      $("#sup-add-state").textContent = `failed: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+}
+
+async function loadSuppliers() {
+  const body = $("#sup-body");
+  if (!body) return;
+  let data;
+  try { data = await api("/api/suppliers"); }
+  catch (e) { return; }
+  const sups = data.suppliers || [];
+  $("#sup-empty").style.display = sups.length ? "none" : "";
+  $("#sup-wrap").style.display = sups.length ? "" : "none";
+  body.innerHTML = "";
+  for (const s of sups) {
+    const sc = s.scorecard || {grade: "?", score: 0, color: "#90a4ae"};
+    const doms = (s.domain_counts || [])
+      .map(d => `<span class="dom-tag" style="--dc:${d.color}" title="${escapeHtml(d.label)}">${d.icon || "•"} ${d.count}</span>`)
+      .join(" ") || '<span class="dim">—</span>';
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="grade-pill" style="--gc:${sc.color}">${escapeHtml(sc.grade)}</span></td>
+      <td><span class="risk-tag">${sc.score}</span></td>
+      <td>${escapeHtml(s.supplier_name)}${s.running ? ' <span class="badge live">live</span>' : ''}</td>
+      <td class="scope">${escapeHtml(s.domains || "—")}</td>
+      <td>${doms}</td>
+      <td class="dim">${s.total_findings}</td>
+      <td class="dim">${escapeHtml(s.mtime_iso || "")}</td>
+      <td><button class="btn-mini sup-open" title="Open in Overview/Findings">open ↗</button></td>`;
+    tr.querySelector(".sup-open").onclick = () => {
+      selectScan(s.name);
+      $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "overview"));
+      $$(".panel").forEach(x => x.classList.toggle("active", x.id === "panel-overview"));
+    };
+    body.appendChild(tr);
+  }
 }
 
 async function runDiscover() {

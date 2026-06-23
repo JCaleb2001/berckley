@@ -30,21 +30,30 @@ RUN echo 'deb https://kali.download/kali kali-rolling main contrib non-free non-
       wafw00f ffuf nikto \
  && apt-get install -y --no-install-recommends --fix-missing \
       chromium \
+ && apt-get install -y --no-install-recommends --fix-missing \
+      seclists \
  && rm -rf /var/lib/apt/lists/*
 
-# ProjectDiscovery toolchain: nuclei + subfinder (passive subdomain enum) +
-# httpx (live host probe). All compiled from source via go install; binaries
-# end up in /root/go/bin and we promote them to /usr/local/bin for PATH.
+# ProjectDiscovery toolchain + discovery extras: nuclei, subfinder (passive
+# subdomain enum), httpx (live host probe), dnsx (DNS brute/resolve with a
+# resolver pool + wildcard filtering), gotator (subdomain permutations), and
+# gau (historical URLs from wayback/otx/commoncrawl). All compiled via go
+# install into /root/go/bin and promoted to /usr/local/bin for PATH.
 RUN set -eux; \
     go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest    || echo "nuclei skipped"; \
     go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest || echo "subfinder skipped"; \
     go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest         || echo "httpx skipped"; \
-    for b in nuclei subfinder httpx; do \
+    go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest           || echo "dnsx skipped"; \
+    go install -v github.com/Josue87/gotator@latest                         || echo "gotator skipped"; \
+    go install -v github.com/lc/gau/v2/cmd/gau@latest                       || echo "gau skipped"; \
+    for b in nuclei subfinder httpx dnsx gotator gau; do \
       [ -f "/root/go/bin/$b" ] && cp "/root/go/bin/$b" "/usr/local/bin/$b" || true; \
     done; \
     nuclei -version  2>/dev/null | head -1 || true; \
     subfinder -version 2>/dev/null | head -1 || true; \
-    httpx -version   2>/dev/null | head -1 || true
+    httpx -version   2>/dev/null | head -1 || true; \
+    dnsx -version    2>/dev/null | head -1 || true; \
+    gau --version    2>/dev/null | head -1 || true
 
 WORKDIR /app
 COPY requirements.txt .

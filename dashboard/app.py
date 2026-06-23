@@ -193,6 +193,7 @@ def _list_scans() -> list[dict]:
         except OSError:
             mtime = 0
         running = child.name in RUNNING
+        sup = _supplier_meta(child)
         out.append({
             "name": child.name,
             "display": _friendly_name(child.name),
@@ -208,8 +209,21 @@ def _list_scans() -> list[dict]:
             "has_master_log": master.is_file(),
             "validated": _has_validation(child),
             "running": running,
+            "supplier": bool(sup),
+            "supplier_name": (sup or {}).get("name", ""),
         })
     return out
+
+
+def _supplier_meta(scan_dir: Path) -> Optional[dict]:
+    """Return the .supplier.json marker for a passive supplier scan, or None."""
+    p = scan_dir / "report" / ".supplier.json"
+    if not p.is_file():
+        return None
+    try:
+        return json.loads(p.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"name": ""}
 
 
 def _severity_counts(tsv: Path) -> dict[str, int]:
@@ -318,6 +332,40 @@ def health() -> dict:
 @app.get("/api/scans")
 def list_scans() -> dict:
     return {"scans": _list_scans()}
+
+
+@app.get("/api/suppliers")
+def list_suppliers() -> dict:
+    """Portfolio view of passive supplier scans: each with its posture grade,
+    security-domain breakdown and findings count — comparable across suppliers."""
+    out = []
+    for s in _list_scans():
+        if not s.get("supplier"):
+            continue
+        sd = ROOT / s["name"]
+        findings = _parse_findings(_findings_path(sd, prefer_validated=True))
+        sev = {k: int(v) for k, v in s["severity"].items()}
+        dom = Counter(f["domain"] for f in findings)
+        domain_counts = [
+            {**d, "count": int(dom[d["slug"]])}
+            for d in nw_taxonomy.iter_domains() if dom.get(d["slug"])
+        ]
+        out.append({
+            "name": s["name"],
+            "supplier_name": s["supplier_name"] or s["name"],
+            "domains": s["domains"],
+            "mtime_iso": s["mtime_iso"],
+            "running": s["running"],
+            "validated": s["validated"],
+            "total_findings": len(findings),
+            "severity": sev,
+            "scorecard": nw_scorecard.compute(sev),
+            "domain_counts": domain_counts,
+            "reports": {
+                "mgmt_html": (sd / "report" / "management_report.html").is_file(),
+            },
+        })
+    return {"suppliers": out}
 
 
 @app.get("/api/scans/{name}/summary")
@@ -1047,6 +1095,9 @@ class LaunchRequest(BaseModel):
     # If provided, overrides `domains`: an explicit, user-curated list of hosts
     # to put into recon/input_domains.txt for the scan.
     scope_hosts: Optional[list[str]] = None
+    # Supplier / passive mode — outside-in only (no aggressive scanning).
+    passive: bool = False
+    supplier_name: str = ""
 
 
 class IntakeRequest(BaseModel):
@@ -1087,12 +1138,18 @@ async def launch_scan(req: LaunchRequest) -> dict:
         raise HTTPException(400, "rate out of range")
 
     suffix = "".join(c for c in req.name_suffix if c.isalnum() or c in "._-")[:32]
+    # Supplier scans get a recognizable dir prefix + a supplier_name-derived slug.
+    if req.passive:
+        sup_slug = "".join(c for c in req.supplier_name if c.isalnum() or c in "._-")[:32]
+        suffix = f"supplier_{sup_slug}" if sup_slug else (suffix or "supplier")
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     name = f"pentest_{suffix + '_' if suffix else ''}{ts}"
     out_dir = ROOT / name
 
     cmd = ["bash", str(SCANNER), "-o", str(out_dir), "-p", req.phase,
            "-t", str(req.threads), "-r", str(req.rate)]
+    if req.passive:
+        cmd.append("-P")   # outside-in only — no aggressive scanning
     if scope_hosts:
         # Materialize the curated scope as a file the scanner reads with `-d`.
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -1108,6 +1165,15 @@ async def launch_scan(req: LaunchRequest) -> dict:
     # Pre-create master.log so the stream can attach immediately
     (out_dir / "report").mkdir(parents=True, exist_ok=True)
     (out_dir / "report" / "master.log").touch()
+    # Tag supplier (passive) scans so the Suppliers tab can find + label them.
+    if req.passive:
+        marker = {
+            "name": req.supplier_name.strip() or (req.domains.strip() or "supplier"),
+            "domains": req.domains.strip(),
+            "passive": True,
+            "created": ts,
+        }
+        (out_dir / "report" / ".supplier.json").write_text(json.dumps(marker, indent=2))
 
     proc = subprocess.Popen(
         cmd,

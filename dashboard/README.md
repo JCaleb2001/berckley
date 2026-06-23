@@ -4,6 +4,12 @@ A hacker-styled, single-page console for the `extpentest.sh` scanner. It
 reads every `pentest_*` directory in the repo root, parses
 `report/findings.tsv` and `assets/discovered.log`, and gives you:
 
+- **Suppliers tab** — passive, outside-in assessment of third parties/vendors.
+  Launches the scanner in passive mode (`extpentest.sh -P`): OSINT, DNS/email,
+  certificate transparency, passive discovery and browser-level TLS/header checks
+  only — **no** brute-force, port-scan, webapp fuzzing, nuclei or auth tests.
+  Shows a portfolio table of suppliers with their posture grade (A–F), security
+  domains of risk and findings count. `GET /api/suppliers` powers it.
 - Severity overview with top categories and most-hit scopes
 - **Security-posture score** — a 0–100 grade (A–F) for the whole scan, derived
   from the validated severity profile (`100 − (45·C + 18·H + 6·M + 1.5·L)`,
