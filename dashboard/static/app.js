@@ -82,9 +82,9 @@ async function refresh(initial) {
   try {
     const health = await api("/api/health");
     $("#health-line").innerHTML =
-      `<span class="online-dot"></span> root <span style="color:var(--fg)">${escapeHtml(health.root)}</span>` +
-      `  ·  scanner <span style="color:${health.scanner_present ? 'var(--accent)' : 'var(--crit)'}">${health.scanner_present ? "ok" : "missing"}</span>` +
-      `  ·  running <span style="color:var(--fg)">${health.running.length}</span>`;
+      `<span class="online-dot"></span> Connected` +
+      `  ·  Scanner <span style="color:${health.scanner_present ? 'var(--accent-2)' : 'var(--crit)'}">${health.scanner_present ? "ready" : "missing"}</span>` +
+      `  ·  Running <span style="color:var(--fg)">${health.running.length}</span>`;
     setStatusBar({ connected: true, running: health.running.length });
   } catch {
     $("#health-line").textContent = "backend unreachable";

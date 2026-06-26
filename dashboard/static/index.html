@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Berckley // External Pentest Console</title>
+<title>Berckley — External Pentest Console</title>
 <link rel="icon" type="image/png" href="/logo.png">
 <link rel="apple-touch-icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,7 @@
     <div class="brand-text">
       <div class="title">
         <span class="wordmark">Berckley</span>
-        <span class="sep">//</span>
+        <span class="sep">|</span>
         <span class="subtitle">External Pentest Console</span>
       </div>
       <div class="sub health-line" id="health-line"><span class="online-dot"></span> Booting…</div>
@@ -67,10 +67,9 @@
     <div id="panel-overview" class="panel active">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Overview</h2>
         </div>
-        <p class="panel-desc">// Posture at a glance — severity counts, top risk-weighted hosts, and most impacted categories.</p>
+        <p class="panel-desc">Posture at a glance — severity counts, top risk-weighted hosts, and most impacted categories.</p>
       </div>
       <div id="overview-empty" class="empty">Select a scan from the left, or launch a new one →</div>
       <div id="overview-body" class="hidden">
@@ -164,10 +163,9 @@
     <div id="panel-suppliers" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Suppliers</h2>
         </div>
-        <p class="panel-desc">// Passive third-party / vendor assessment — outside-in only. OSINT, DNS/email, certificate transparency, passive discovery and browser-level TLS/header checks. No brute-force, port-scan, fuzzing, nuclei or auth tests.</p>
+        <p class="panel-desc">Passive third-party / vendor assessment — outside-in only. OSINT, DNS/email, certificate transparency, passive discovery and browser-level TLS/header checks. No brute-force, port-scan, fuzzing, nuclei or auth tests.</p>
       </div>
       <div class="sup-addbar">
         <input id="sup-name" placeholder="Supplier name (e.g. Acme Corp)" />
@@ -187,10 +185,9 @@
     <div id="panel-findings" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Findings</h2>
         </div>
-        <p class="panel-desc">// Every issue the scanner surfaced. Filter by severity or ownership, sort by contextual risk, or suppress false positives inline.</p>
+        <p class="panel-desc">Every issue the scanner surfaced. Filter by severity or ownership, sort by contextual risk, or suppress false positives inline.</p>
       </div>
       <div class="toolbar">
         <input id="f-search" placeholder="Filter category / scope / description…" />
@@ -221,10 +218,9 @@
     <div id="panel-audit" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Validation</h2>
         </div>
-        <p class="panel-desc">// Audit trail of every auto-rule decision — what was suppressed, what was downgraded, and the rule + reason behind each call.</p>
+        <p class="panel-desc">Audit trail of every auto-rule decision — what was suppressed, what was downgraded, and the rule + reason behind each call.</p>
       </div>
       <div class="toolbar">
         <div class="chip-group" id="a-verdict">
@@ -247,10 +243,9 @@
     <div id="panel-ownership" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Ownership</h2>
         </div>
-        <p class="panel-desc">// Per-host classification: OWNED · SAAS · CDN · CLOUD_SHARED · INTERNAL · EXTERNAL · UNKNOWN — with provider, IP, ASN, and the evidence used.</p>
+        <p class="panel-desc">Per-host classification: OWNED · SAAS · CDN · CLOUD_SHARED · INTERNAL · EXTERNAL · UNKNOWN — with provider, IP, ASN, and the evidence used.</p>
       </div>
       <div class="toolbar">
         <div id="o-classes" class="chip-group"></div>
@@ -268,10 +263,9 @@
     <div id="panel-suppressions" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Suppressions</h2>
         </div>
-        <p class="panel-desc">// Persistent allowlist of accepted false positives. Glob match supported (e.g. <code>*.example.com</code>). Entries survive re-runs and re-validation.</p>
+        <p class="panel-desc">Persistent allowlist of accepted false positives. Glob match supported (e.g. <code>*.example.com</code>). Entries survive re-runs and re-validation.</p>
       </div>
       <div class="toolbar">
         <span class="dim" id="sup-count">0 entries</span>
@@ -291,10 +285,9 @@
     <div id="panel-diff" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Diff</h2>
         </div>
-        <p class="panel-desc">// Compare two runs — what's new, fixed, or changed in severity since a previous engagement. Auto-picks the most recent prior scan with overlapping domains.</p>
+        <p class="panel-desc">Compare two runs — what's new, fixed, or changed in severity since a previous engagement. Auto-picks the most recent prior scan with overlapping domains.</p>
       </div>
       <div class="toolbar">
         <label class="dim">Compare against:</label>
@@ -330,10 +323,9 @@
     <div id="panel-assets" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Assets</h2>
         </div>
-        <p class="panel-desc">// Heterogeneous discovery inventory — subdomains, ASNs, crawl output, GitHub orgs, Azure AD tenants, federated auth endpoints.</p>
+        <p class="panel-desc">Heterogeneous discovery inventory — subdomains, ASNs, crawl output, GitHub orgs, Azure AD tenants, federated auth endpoints.</p>
       </div>
       <div class="toolbar">
         <div id="a-types" class="chip-group"></div>
@@ -350,10 +342,9 @@
     <div id="panel-extract" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Extract</h2>
         </div>
-        <p class="panel-desc">// Export identified hosts as TXT · CSV · JSON — drop into nmap, nuclei, ffuf, or your ticketing system.</p>
+        <p class="panel-desc">Export identified hosts as TXT · CSV · JSON — drop into nmap, nuclei, ffuf, or your ticketing system.</p>
       </div>
       <div class="toolbar">
         <div id="x-classes" class="chip-group"></div>
@@ -378,10 +369,9 @@
     <div id="panel-triage" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Triage</h2>
         </div>
-        <p class="panel-desc">// Discovered domains and subdomains the scanner identified. Click <strong>↻</strong> to manually verify a host is alive, then add an <strong>Owner Tag</strong> to track who owns it. Tags persist across scans and survive scan deletion. IPs and host:port entries are filtered out — only clean FQDNs appear here.</p>
+        <p class="panel-desc">Discovered domains and subdomains the scanner identified. Click <strong>↻</strong> to manually verify a host is alive, then add an <strong>Owner Tag</strong> to track who owns it. Tags persist across scans and survive scan deletion. IPs and host:port entries are filtered out — only clean FQDNs appear here.</p>
       </div>
       <div class="toolbar">
         <input id="t-search" placeholder="Filter host / tag / notes…">
@@ -415,10 +405,9 @@
     <div id="panel-live" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Live Log</h2>
         </div>
-        <p class="panel-desc">// Streams the scanner's <code>master.log</code> over SSE. Attach during an active scan to follow phase progress in real time.</p>
+        <p class="panel-desc">Streams the scanner's <code>master.log</code> over SSE. Attach during an active scan to follow phase progress in real time.</p>
       </div>
       <div class="toolbar">
         <button id="btn-attach" class="primary">▶ Attach Stream</button>
@@ -432,10 +421,9 @@
     <div id="panel-reports" class="panel">
       <div class="panel-head">
         <div class="panel-head-main">
-          <span class="panel-prompt">›</span>
           <h2 class="panel-title">Reports</h2>
         </div>
-        <p class="panel-desc">// Generate the executive or technical HTML report — both include validation summary, ownership breakdown, top risks, and diff sections.</p>
+        <p class="panel-desc">Generate the executive or technical HTML report — both include validation summary, ownership breakdown, top risks, and diff sections.</p>
       </div>
       <div class="report-actions">
         <div class="rep-card">
