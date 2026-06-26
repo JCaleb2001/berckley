@@ -350,6 +350,23 @@ def list_suppliers() -> dict:
             {**d, "count": int(dom[d["slug"]])}
             for d in nw_taxonomy.iter_domains() if dom.get(d["slug"])
         ]
+        # Per-domain sub-grade: run the posture formula on each domain's own
+        # severity profile, so a supplier shows e.g. Email B / Crypto D / Cloud A.
+        dom_sev: dict[str, dict] = {}
+        for f in findings:
+            d = dom_sev.setdefault(f["domain"], {x: 0 for x in SEVERITIES})
+            if f["severity"] in d:
+                d[f["severity"]] += 1
+        subscores = []
+        for d in nw_taxonomy.iter_domains():
+            if not dom.get(d["slug"]):
+                continue
+            sc = nw_scorecard.compute(dom_sev.get(d["slug"], {}))
+            subscores.append({
+                "slug": d["slug"], "label": d["label"], "icon": d["icon"],
+                "count": int(dom[d["slug"]]),
+                "grade": sc["grade"], "score": sc["score"], "color": sc["color"],
+            })
         out.append({
             "name": s["name"],
             "supplier_name": s["supplier_name"] or s["name"],
@@ -361,6 +378,7 @@ def list_suppliers() -> dict:
             "severity": sev,
             "scorecard": nw_scorecard.compute(sev),
             "domain_counts": domain_counts,
+            "subscores": subscores,
             "reports": {
                 "mgmt_html": (sd / "report" / "management_report.html").is_file(),
             },
@@ -491,7 +509,8 @@ def scan_findings(name: str, severity: Optional[str] = None, q: Optional[str] = 
             f"/api/scans/{name}/evidence/{ev_file}" if ev_file else ""
         )
         comps = nw_risk.score_components(
-            r["severity"], r["category"], r["scope"], r["owner_class"]
+            r["severity"], r["category"], r["scope"], r["owner_class"],
+            r["confidence"]["band"]
         )
         r["risk_score"] = comps.score
         r["risk_breakdown"] = {

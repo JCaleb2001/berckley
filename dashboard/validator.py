@@ -861,6 +861,78 @@ class TakeoverReverifyRule(Rule):
         return Verdict.keep()              # CNAME present, target dead → genuinely dangling
 
 
+def _tcp_open(host: str, port: int, timeout: float = 4.0) -> bool:
+    """True if a TCP connection to host:port completes. A failure proves the
+    service is NOT reachable (so it can be suppressed); a success does not prove
+    the protocol, only reachability — which is enough to KEEP."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except (OSError, ValueError, OverflowError):
+        return False
+
+
+class ServiceAliveRule(Rule):
+    """Re-probe port-level "service exposed" findings: services get firewalled,
+    moved or shut down between scan and report. If the TCP port is no longer
+    reachable, the exposure is stale → suppress. Conservative: only suppresses
+    on a definitive connection failure, never on a successful connect (so a live
+    service is always kept). Skips findings without a concrete host:port."""
+    name = "service-alive"
+    description = "exposed service port no longer reachable"
+    needs_network = True
+
+    # Categories whose validity hinges on a TCP service still listening.
+    SERVICE_CATEGORIES = (
+        "Redis", "MongoDB", "Elasticsearch", "Memcached", "PostgreSQL",
+        "MySQL", "MariaDB", "FTP", "Telnet", "VNC", "SMB", "LDAP",
+        "RabbitMQ", "AMQP", "ActiveMQ", "Kafka", "etcd", "CouchDB",
+        "RethinkDB", "Docker", "Kubelet", "Kubernetes", "RPC Portmapper",
+        "Memcached", "NFS", "SNMP",
+    )
+    # Default port per service keyword, used when the scope has no :port.
+    _DEFAULT_PORT = {
+        "redis": 6379, "mongodb": 27017, "elasticsearch": 9200,
+        "memcached": 11211, "postgresql": 5432, "mysql": 3306,
+        "mariadb": 3306, "ftp": 21, "telnet": 23, "vnc": 5900,
+        "smb": 445, "ldap": 389, "rabbitmq": 5672, "amqp": 5672,
+        "couchdb": 5984, "docker": 2375, "etcd": 2379,
+    }
+
+    def applies(self, f: Finding) -> bool:
+        cat = (f.category or "")
+        if not any(k.lower() in cat.lower() for k in self.SERVICE_CATEGORIES):
+            return False
+        return bool(self._host_port(f))
+
+    def _host_port(self, f: Finding):
+        host = extract_host(f.scope) or extract_ip(f.scope)
+        if not host:
+            return None
+        m = _PORT_RE.search((f.scope or "").strip().split()[0]) if f.scope.strip() else None
+        port = int(m.group(1)) if m else None
+        if port is None:
+            low = (f.category or "").lower()
+            for k, p in self._DEFAULT_PORT.items():
+                if k in low:
+                    port = p
+                    break
+        if port is None:
+            return None
+        return host, port
+
+    def validate(self, f: Finding) -> Verdict:
+        hp = self._host_port(f)
+        if not hp:
+            return Verdict.keep()
+        host, port = hp
+        if _tcp_open(host, port):
+            return Verdict.keep()          # still reachable → keep
+        return Verdict.suppress(
+            self.name, f"{host}:{port} no longer accepts TCP connections — "
+            f"service is firewalled or down (stale exposure)")
+
+
 # Registration order matters: user suppressions first (intent overrides auto),
 # then cheap pure-filter rules, then network probes.
 RULES: list[Rule] = [
@@ -871,6 +943,7 @@ RULES: list[Rule] = [
     HeaderPresenceRule(),       # header actually set on the final (post-redirect) response
     CorsReverifyRule(),         # CORS only real if origin reflected + credentials
     TakeoverReverifyRule(),     # dangling CNAME re-checked via DNS
+    ServiceAliveRule(),         # exposed service port re-probed for liveness
     SnmpReverifyRule(),
     EmailAuthNoMxRule(),
     CertCnameSaasRule(),

@@ -118,6 +118,33 @@ def test_erroring_rule_does_not_skip_later_rules(monkeypatch):
     assert V.RULE_TELEMETRY["boom"]["errored"] == 1
 
 
+# ─── ServiceAliveRule ─────────────────────────────────────────────────────────
+def test_service_alive_keeps_reachable(monkeypatch):
+    monkeypatch.setattr(V, "_tcp_open", lambda h, p, timeout=4.0: True)
+    v = V.ServiceAliveRule().validate(F("HIGH", "Redis Exposed", "10.0.0.5:6379", ""))
+    assert v.action == "KEEP"
+
+
+def test_service_alive_suppresses_unreachable(monkeypatch):
+    monkeypatch.setattr(V, "_tcp_open", lambda h, p, timeout=4.0: False)
+    v = V.ServiceAliveRule().validate(F("HIGH", "MongoDB Exposed", "10.0.0.5:27017", ""))
+    assert v.action == "SUPPRESS"
+
+
+def test_service_alive_default_port_from_category(monkeypatch):
+    seen = {}
+    def fake(h, p, timeout=4.0): seen["port"] = p; return True
+    monkeypatch.setattr(V, "_tcp_open", fake)
+    # scope has no :port → rule derives 6379 from "Redis"
+    v = V.ServiceAliveRule().validate(F("HIGH", "Redis Exposed (No Auth)", "host.example.com", ""))
+    assert v.action == "KEEP" and seen["port"] == 6379
+
+
+def test_service_alive_skips_non_service():
+    # A header finding must not be touched by ServiceAliveRule.
+    assert not V.ServiceAliveRule().applies(F("LOW", "Missing HSTS", "https://x.example", ""))
+
+
 class _SelectiveRule(V.Rule):
     name = "sel"
     def applies(self, f): return True

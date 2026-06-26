@@ -149,6 +149,17 @@ DEFAULT_EXPLOIT = 1.0
 
 
 # ─── API ─────────────────────────────────────────────────────────────────────
+# Confidence dampens risk: a tentative (fingerprint-only) finding should not
+# rank next to an actively-proven one. Multiplier ≤ 1.0 so it only ever lowers.
+CONFIDENCE_WEIGHTS: dict[str, float] = {
+    "HIGH": 1.00, "MEDIUM": 0.80, "LOW": 0.55, "": 1.00,
+}
+
+
+def confidence_weight(band: str) -> float:
+    return CONFIDENCE_WEIGHTS.get((band or "").upper(), 1.0)
+
+
 @dataclass
 class Components:
     severity: float
@@ -157,11 +168,13 @@ class Components:
     host_criticality: float
     exploit_label: str = ""
     criticality_label: str = ""
+    confidence: float = 1.0
 
     @property
     def score(self) -> float:
         return round(
-            self.severity * self.exploitability * self.ownership * self.host_criticality,
+            self.severity * self.exploitability * self.ownership
+            * self.host_criticality * self.confidence,
             1,
         )
 
@@ -203,7 +216,7 @@ def host_criticality(scope: str) -> tuple[float, str]:
 
 
 def score_components(severity: str, category: str, scope: str,
-                     owner_class: str) -> Components:
+                     owner_class: str, confidence: str = "") -> Components:
     exploit, e_label = category_exploitability(category)
     crit, c_label = host_criticality(scope)
     return Components(
@@ -213,11 +226,13 @@ def score_components(severity: str, category: str, scope: str,
         host_criticality=crit,
         exploit_label=e_label,
         criticality_label=c_label,
+        confidence=confidence_weight(confidence),
     )
 
 
-def score(severity: str, category: str, scope: str, owner_class: str = "") -> float:
-    return score_components(severity, category, scope, owner_class).score
+def score(severity: str, category: str, scope: str, owner_class: str = "",
+          confidence: str = "") -> float:
+    return score_components(severity, category, scope, owner_class, confidence).score
 
 
 def aggregate_by_host(findings: list[dict]) -> list[dict]:

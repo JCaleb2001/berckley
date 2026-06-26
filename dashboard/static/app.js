@@ -534,8 +534,9 @@ async function loadSuppliers() {
   body.innerHTML = "";
   for (const s of sups) {
     const sc = s.scorecard || {grade: "?", score: 0, color: "#90a4ae"};
-    const doms = (s.domain_counts || [])
-      .map(d => `<span class="dom-tag" style="--dc:${d.color}" title="${escapeHtml(d.label)}">${d.icon || "•"} ${d.count}</span>`)
+    // Per-domain sub-grade chips (e.g. "✉ B", "🔒 D") — vendor risk at a glance.
+    const doms = (s.subscores || s.domain_counts || [])
+      .map(d => `<span class="dom-tag" style="--dc:${d.color}" title="${escapeHtml(d.label)} — grade ${d.grade || ''} (${d.count} findings)">${d.icon || "•"} ${d.grade || d.count}</span>`)
       .join(" ") || '<span class="dim">—</span>';
     const tr = document.createElement("tr");
     tr.innerHTML = `

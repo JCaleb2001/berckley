@@ -35,7 +35,8 @@ BAND_ORDER = ["HIGH", "MEDIUM", "LOW"]
 _LOW_MARKERS = re.compile(
     r"may cause false|verify if|deserves review|\bpotential\b|\bindicator\b|"
     r"\bfingerprint|\bwayback\b|\bhistorical(ly)?\b|\bappears?\b|\blikely\b|"
-    r"\bpossible\b|\bseems\b|\bmight\b|unconfirmed",
+    r"\bpossible\b|\bseems\b|\bmight\b|unconfirmed|"
+    r"may be|suspected|candidate|heuristic|inferred|not confirmed|review manually",
     re.IGNORECASE,
 )
 
