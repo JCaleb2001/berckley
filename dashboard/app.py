@@ -856,11 +856,18 @@ def extract_assets(
             except OSError:
                 pass
 
-    # Union the universe
-    all_hosts: set[str] = set()
-    all_hosts.update(h.lower() for h in omap.keys())
-    all_hosts.update(per_host.keys())
-    all_hosts.update(enum_hosts)
+    # Union the universe, then sanitize: strip wildcard/leading dots and drop
+    # malformed names (empty labels, single words) so the exported asset list
+    # the team uses for owner assignment contains only real hostnames.
+    _fqdn_re = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+    def _clean_host(h: str) -> str:
+        h = (h or "").strip().lower().lstrip("*").strip(".")
+        return h if _fqdn_re.match(h) else ""
+    raw_universe: set[str] = set()
+    raw_universe.update(omap.keys())
+    raw_universe.update(per_host.keys())
+    raw_universe.update(enum_hosts)
+    all_hosts: set[str] = {ch for h in raw_universe if (ch := _clean_host(h))}
 
     rows = []
     for h in sorted(all_hosts):

@@ -46,9 +46,7 @@ window.addEventListener("DOMContentLoaded", () => {
 function bindHashRouter() {
   const apply = () => {
     const h = (location.hash || "").replace("#", "").trim();
-    if (!h) return;
-    const t = document.querySelector(`.tab[data-tab="${CSS.escape(h)}"]`);
-    if (t) t.click();
+    if (h && document.getElementById(`panel-${h}`)) switchPanel(h);
   };
   window.addEventListener("hashchange", apply);
   setTimeout(apply, 80);
@@ -366,9 +364,7 @@ function filterByDomain(slug) {
   // re-render chips to reflect the active selection, then switch tabs
   const group = $("#f-domain");
   if (group) group.dataset.rendered = "";
-  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === "findings"));
-  $$(".panel").forEach(p => p.classList.toggle("active", p.id === "panel-findings"));
-  loadFindings();
+  switchPanel("findings");
 }
 
 function setSev(slot, val, rawVal) {
@@ -383,29 +379,63 @@ function setSev(slot, val, rawVal) {
 function sumSev(o) { return o ? (o.CRITICAL + o.HIGH + o.MEDIUM + o.LOW) : 0; }
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
+// Asset-group sub-views live under the single "Assets" primary tab.
+const ASSET_GROUP = ["assets", "ownership", "extract", "triage"];
+// Panels that don't need a scan selected to render.
+const NO_SELECT = ["suppliers"];
+
+function _loadFor(tab) {
+  if (tab === "suppliers") { loadSuppliers(); return; }
+  if (!state.selected) return;
+  ({
+    findings: loadFindings, audit: loadAudit, ownership: loadOwnership,
+    suppressions: loadSuppressions, diff: loadDiffOptions, assets: loadAssets,
+    extract: loadExtract, triage: loadTriage, live: loadLogSnapshot,
+  })[tab]?.();
+}
+
+// Switch to a panel by name, updating primary-nav highlight, the Assets
+// sub-nav, and closing the More menu. This is the single entry point for all
+// navigation (primary tabs, More menu, sub-pills, deep links).
+function switchPanel(tab) {
+  $$(".panel").forEach(x => x.classList.remove("active"));
+  const panel = $(`#panel-${tab}`);
+  if (panel) panel.classList.add("active");
+
+  const inAssets = ASSET_GROUP.includes(tab);
+  const inMore = ["audit", "suppressions", "diff", "live"].includes(tab);
+  // Primary-nav highlight: the Assets group always lights the "Assets" tab.
+  const primaryFor = inAssets ? "assets" : tab;
+  $$(".tabs > .tab, #assets-subnav .subpill").forEach(x => x.classList.remove("active"));
+  $$(".tabs > .tab").forEach(x => { if (x.dataset.tab === primaryFor) x.classList.add("active"); });
+  $("#more-btn")?.classList.toggle("active", inMore);
+  $$("#more-menu .tab").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
+  // Assets sub-nav: visible only within the group, with the right pill active.
+  const sub = $("#assets-subnav");
+  if (sub) {
+    sub.classList.toggle("hidden", !inAssets);
+    $$("#assets-subnav .subpill").forEach(p => p.classList.toggle("active", p.dataset.tab === tab));
+  }
+  $("#more-menu")?.classList.add("hidden");
+  _loadFor(tab);
+}
+
 function bindTabs() {
-  $$(".tab").forEach(t => {
-    // Tabs without data-tab (e.g. the Guide anchor) are external links —
-    // let the browser handle them, don't try to switch panels.
-    if (!t.dataset.tab) return;
-    t.onclick = () => {
-      $$(".tab").forEach(x => x.classList.remove("active"));
-      $$(".panel").forEach(x => x.classList.remove("active"));
-      t.classList.add("active");
-      $(`#panel-${t.dataset.tab}`).classList.add("active");
-      if (t.dataset.tab === "suppliers") loadSuppliers();  // portfolio — no scan selection needed
-      if (!state.selected) return;
-      if (t.dataset.tab === "findings") loadFindings();
-      if (t.dataset.tab === "audit") loadAudit();
-      if (t.dataset.tab === "ownership") loadOwnership();
-      if (t.dataset.tab === "suppressions") loadSuppressions();
-      if (t.dataset.tab === "diff") loadDiffOptions();
-      if (t.dataset.tab === "assets") loadAssets();
-      if (t.dataset.tab === "extract") loadExtract();
-      if (t.dataset.tab === "triage") loadTriage();
-      if (t.dataset.tab === "live") loadLogSnapshot();
-    };
+  // Primary tabs + More-menu items (all carry data-tab).
+  $$(".tabs .tab[data-tab], #more-menu .tab[data-tab]").forEach(t => {
+    // The Assets primary tab defaults to the Inventory sub-view.
+    t.onclick = () => switchPanel(t.dataset.group === "assets" ? "assets" : t.dataset.tab);
   });
+  // Assets sub-pills.
+  $$("#assets-subnav .subpill").forEach(p => {
+    p.onclick = () => switchPanel(p.dataset.tab);
+  });
+  // "More ▾" dropdown toggle.
+  const moreBtn = $("#more-btn"), moreMenu = $("#more-menu");
+  if (moreBtn && moreMenu) {
+    moreBtn.onclick = e => { e.stopPropagation(); moreMenu.classList.toggle("hidden"); };
+    document.addEventListener("click", () => moreMenu.classList.add("hidden"));
+  }
 }
 
 function bindHeader() {
@@ -474,10 +504,7 @@ function bindModal() {
         $("#form-msg").textContent = "";
         await refresh(false);
         selectScan(r.name);
-        $$(".tab").forEach(x => x.classList.remove("active"));
-        $$(".panel").forEach(x => x.classList.remove("active"));
-        $(`.tab[data-tab=live]`).classList.add("active");
-        $(`#panel-live`).classList.add("active");
+        switchPanel("live");
         attachStream();
       }, 600);
     } catch (err) {
@@ -507,10 +534,7 @@ function bindSuppliers() {
       setTimeout(async () => {
         await refresh(false);
         selectScan(r.name);
-        $$(".tab").forEach(x => x.classList.remove("active"));
-        $$(".panel").forEach(x => x.classList.remove("active"));
-        $(`.tab[data-tab=live]`).classList.add("active");
-        $(`#panel-live`).classList.add("active");
+        switchPanel("live");
         attachStream();
         $("#sup-add-state").textContent = "";
       }, 600);
@@ -550,8 +574,7 @@ async function loadSuppliers() {
       <td><button class="btn-mini sup-open" title="Open in Overview/Findings">open ↗</button></td>`;
     tr.querySelector(".sup-open").onclick = () => {
       selectScan(s.name);
-      $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "overview"));
-      $$(".panel").forEach(x => x.classList.toggle("active", x.id === "panel-overview"));
+      switchPanel("overview");
     };
     body.appendChild(tr);
   }
@@ -724,8 +747,15 @@ async function loadFindings() {
   if (state.showRaw) params.set("source", "raw");
   if ($("#f-sort-risk").checked) params.set("sort", "risk");
   const data = await api(`/api/scans/${state.selected}/findings?${params}`);
-  $("#f-count").textContent =
-    `${data.count} row${data.count === 1 ? "" : "s"} (${data.source}) · total risk ${data.total_risk}`;
+  // Results-first: show the validated (real) findings; the audit of what was
+  // filtered lives behind a discreet link, not a primary tab.
+  const auditLink = (data.source === "validated")
+    ? ` · <a href="#" class="audit-link">why filtered?</a>`
+    : "";
+  $("#f-count").innerHTML =
+    `${data.count} finding${data.count === 1 ? "" : "s"} (${escapeHtml(data.source)}) · total risk ${data.total_risk}${auditLink}`;
+  const al = $("#f-count .audit-link");
+  if (al) al.onclick = e => { e.preventDefault(); switchPanel("audit"); };
   renderOwnerChips(data.ownership_available);
   // Cache domain metadata (label/icon/color) for badges + render the chips.
   state.domainMeta = {};

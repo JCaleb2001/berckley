@@ -49,20 +49,31 @@
 
     <nav class="tabs">
       <button class="tab active" data-tab="overview">Overview</button>
-      <button class="tab" data-tab="suppliers">Suppliers</button>
       <button class="tab" data-tab="findings">Findings</button>
-      <button class="tab" data-tab="audit">Validation</button>
-      <button class="tab" data-tab="ownership">Ownership</button>
-      <button class="tab" data-tab="suppressions">Suppressions</button>
-      <button class="tab" data-tab="diff">Diff</button>
-      <button class="tab" data-tab="assets">Assets</button>
-      <button class="tab" data-tab="extract">Extract</button>
-      <button class="tab" data-tab="triage">Triage</button>
-      <button class="tab" data-tab="live">Live Log</button>
+      <button class="tab" data-tab="assets" data-group="assets">Assets</button>
+      <button class="tab" data-tab="suppliers">Suppliers</button>
       <button class="tab" data-tab="reports">Reports</button>
+      <div class="tab-more">
+        <button class="tab" id="more-btn" aria-haspopup="true">More ▾</button>
+        <div class="more-menu hidden" id="more-menu">
+          <button class="tab" data-tab="audit">Validation</button>
+          <button class="tab" data-tab="suppressions">Suppressions</button>
+          <button class="tab" data-tab="diff">Diff</button>
+          <button class="tab" data-tab="live">Live Log</button>
+        </div>
+      </div>
       <a class="tab tab-aux" href="/static/guide.html" target="_blank" rel="noopener"
          title="Open the user guide in a new tab">? Guide ↗</a>
     </nav>
+
+    <!-- Assets sub-navigation — shown only when the Assets group is active.
+         Unifies the asset inventory, ownership, export and triage views. -->
+    <div class="subnav hidden" id="assets-subnav">
+      <button class="subpill active" data-tab="assets">Inventory</button>
+      <button class="subpill" data-tab="ownership">Ownership</button>
+      <button class="subpill" data-tab="extract">Export</button>
+      <button class="subpill" data-tab="triage">Triage</button>
+    </div>
 
     <div id="panel-overview" class="panel active">
       <div class="panel-head">

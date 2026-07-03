@@ -427,15 +427,48 @@ def collect_scopes_from_findings(tsv: Path) -> list[str]:
     return list(seen.keys())
 
 
+def collect_resolved_subdomains(pentest_dir: Path) -> list[str]:
+    """Every resolved subdomain from recon/subs_all_*.txt (post-DNS-resolution,
+    so live hosts, not historical candidates). Folding these into the ownership
+    pass means the asset export carries IP/ASN/owner-class for EVERY real asset
+    — not just the ones that produced a finding — which the owner-assignment
+    workflow needs."""
+    recon = pentest_dir / "recon"
+    out: dict[str, None] = {}
+    if not recon.is_dir():
+        return []
+    import re as _re
+    _fqdn = _re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+    for p in list(recon.glob("subs_all_*.txt")) + [recon / "subs_master.txt"]:
+        if not p.is_file():
+            continue
+        try:
+            for line in p.read_text(errors="ignore").splitlines():
+                s = line.strip().lower()
+                # strip wildcard/leading dots + trailing dot; drop malformed names
+                s = _re.sub(r"^\*\.", "", s)
+                s = s.strip(".")
+                if s and not s.startswith("#") and _fqdn.match(s):
+                    out[s] = None
+        except OSError:
+            pass
+    return list(out.keys())
+
+
 def build_map(pentest_dir: Path, workers: int = 16,
               progress=None) -> dict[str, Classification]:
     roots = read_root_domains(pentest_dir)
     findings = pentest_dir / "report" / "findings.tsv"
-    scopes = collect_scopes_from_findings(findings)
-    # NOTE: assets/discovered.log has many heterogeneous formats. SUBDOMAINS
-    # rows are summary *counts* ("239 discovered for example.com"), not
-    # host lists, so we deliberately do NOT fold them in here — that produced
-    # bogus hosts like "239" / "60" in the first pass.
+    # Universe = finding-scopes UNION every resolved subdomain, so ownership
+    # (IP/ASN/provider/class) is computed for the full realistic asset inventory
+    # the team will assign owners to — not only hosts that raised an issue.
+    # (discovered.log SUBDOMAINS rows are summary counts, not hosts — excluded.)
+    scope_set: dict[str, None] = {}
+    for s in collect_scopes_from_findings(findings):
+        scope_set[s] = None
+    for h in collect_resolved_subdomains(pentest_dir):
+        scope_set[h] = None
+    scopes = list(scope_set.keys())
 
     result: dict[str, Classification] = {}
     total = len(scopes)

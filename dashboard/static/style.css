@@ -463,6 +463,47 @@ code {
 }
 .tab.tab-aux:hover { opacity: 1; color: var(--accent); }
 .tab.tab-aux.active::after { display: none; }   /* never gets the underline */
+
+/* "More ▾" overflow dropdown — secondary/process views */
+.tab-more { position: relative; display: inline-flex; }
+.more-menu {
+  position: absolute; top: 100%; left: 0; z-index: 40;
+  min-width: 170px; margin-top: 2px;
+  display: flex; flex-direction: column;
+  background: var(--bg-1);
+  border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow-strong);
+  padding: 4px;
+}
+.more-menu .tab {
+  padding: 9px 12px; text-align: left; border-radius: 6px;
+  width: 100%;
+}
+.more-menu .tab:hover { background: var(--bg-2); color: var(--fg-strong); }
+.more-menu .tab.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.more-menu .tab.active::after { display: none; }
+
+/* Assets sub-navigation (Inventory / Ownership / Export / Triage) */
+.subnav {
+  display: flex; gap: 6px;
+  padding: 10px 20px 0 20px;
+}
+.subpill {
+  background: var(--bg-1); border: 1px solid var(--line);
+  color: var(--fg-soft);
+  padding: 5px 14px; border-radius: 999px;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .15s var(--ease);
+}
+.subpill:hover { color: var(--fg); border-color: var(--line-bright); }
+.subpill.active {
+  color: #fff; background: var(--accent); border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* Discreet "why filtered?" link in the Findings header */
+.audit-link { color: var(--fg-soft); text-decoration: underline; text-underline-offset: 2px; }
+.audit-link:hover { color: var(--accent); }
 @keyframes tabIn {
   from { transform: scaleX(0); opacity: 0; }
   to   { transform: scaleX(1); opacity: 1; }
