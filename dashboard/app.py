@@ -294,8 +294,11 @@ _LIVE_LINE_RE = re.compile(r"^\S*?://([^/\s\[]+).*?\[(\d{3})\]")
 def _liveness_map(scan_dir: Path) -> dict[str, int]:
     """Parse recon/live_hosts.txt (httpx output: 'scheme://host [code] [ip]…')
     into {host: best_http_code}. 'Best' prefers 2xx > 3xx > 4xx/5xx so a host
-    live on https but 404 on http reads as live. Hosts absent from this map
-    resolved DNS but returned no HTTP response (offline on web)."""
+    live on https but 404 on http reads as live. A 3xx here is a live server
+    (redirect) and _web_status classifies it as LIVE. Hosts absent from this map
+    resolved DNS but returned no HTTP response (offline on web).
+    NOTE: the httpx probe must NOT use -fr (follow-redirects) — it would emit a
+    multi-code chain '[301,200]' that _LIVE_LINE_RE cannot parse."""
     p = scan_dir / "recon" / "live_hosts.txt"
     out: dict[str, int] = {}
     if not p.is_file():
@@ -318,11 +321,12 @@ def _liveness_map(scan_dir: Path) -> dict[str, int]:
 
 
 def _web_status(code: Optional[int]) -> str:
-    """LIVE = serves a page (2xx); RESPONDS = answers but not a real page
-    (3xx/4xx/5xx — redirects, 403, 404); OFFLINE = resolves but no HTTP."""
+    """LIVE = host is up and serving/routing (2xx or 3xx — a redirect still
+    proves a live web server); RESPONDS = answers but no valid resource
+    (4xx/5xx — 401/403/404/errors); OFFLINE = resolves DNS but no HTTP."""
     if code is None:
         return "OFFLINE"
-    if 200 <= code < 300:
+    if 200 <= code < 400:
         return "LIVE"
     return "RESPONDS"
 

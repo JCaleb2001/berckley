@@ -281,11 +281,11 @@
       <div class="toolbar">
         <span class="dim" id="sup-count">0 entries</span>
       </div>
-      <div id="sup-empty" class="empty hidden">No suppressions yet — click the ✕ button on a finding to add one.</div>
-      <div class="table-wrap" id="sup-wrap">
+      <div id="supp-empty" class="empty hidden">No suppressions yet — click the ✕ button on a finding to add one.</div>
+      <div class="table-wrap" id="supp-wrap">
         <table class="data">
           <thead><tr><th>Active</th><th>Category</th><th>Scope</th><th>Reason</th><th>Added</th><th>Expires</th><th></th></tr></thead>
-          <tbody id="sup-body"></tbody>
+          <tbody id="supp-body"></tbody>
         </table>
       </div>
       <div class="dim" style="margin-top:10px;font-size:11px">
@@ -355,13 +355,15 @@
         <div class="panel-head-main">
           <h2 class="panel-title">Extract</h2>
         </div>
-        <p class="panel-desc">Export identified hosts (with owner class + web status) as TXT · CSV · JSON — for owner assignment or as nmap/nuclei/ffuf input. Status: LIVE = serves a page · RESPONDS = 3xx/4xx · OFFLINE = resolves but no HTTP.</p>
+        <p class="panel-desc">Export identified hosts (with owner class + web status) as TXT · CSV · JSON — for owner assignment or as nmap/nuclei/ffuf input. Status: LIVE = up & serving/routing (2xx/3xx) · RESPONDS = answers but no valid resource (4xx/5xx) · OFFLINE = resolves but no HTTP.</p>
       </div>
       <div class="toolbar">
         <div id="x-classes" class="chip-group"></div>
         <div class="chip-group" id="x-webstatus"></div>
         <div class="chip-group">
-          <label><input type="checkbox" id="x-with-findings"> Only Hosts With Findings</label>
+          <label title="Export only hosts that have findings — the affected targets whose owners you need to notify with the report">
+            <input type="checkbox" id="x-with-findings"> ⚠ Affected only (has findings)
+          </label>
         </div>
         <div class="chip-group" id="x-format-group">
           <label><input type="radio" name="xfmt" value="txt" checked> TXT</label>

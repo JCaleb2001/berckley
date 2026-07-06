@@ -1275,13 +1275,13 @@ async function loadSuppressions() {
   $("#sup-count").textContent = `${data.active} active / ${data.count} total`;
   $("#sup-file").textContent = data.file;
   if (data.count === 0) {
-    $("#sup-empty").classList.remove("hidden");
-    $("#sup-wrap").classList.add("hidden");
+    $("#supp-empty").classList.remove("hidden");
+    $("#supp-wrap").classList.add("hidden");
     return;
   }
-  $("#sup-empty").classList.add("hidden");
-  $("#sup-wrap").classList.remove("hidden");
-  const body = $("#sup-body"); body.innerHTML = "";
+  $("#supp-empty").classList.add("hidden");
+  $("#supp-wrap").classList.remove("hidden");
+  const body = $("#supp-body"); body.innerHTML = "";
   for (const s of data.suppressions) {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${s.active
