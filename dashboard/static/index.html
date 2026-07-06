@@ -355,10 +355,11 @@
         <div class="panel-head-main">
           <h2 class="panel-title">Extract</h2>
         </div>
-        <p class="panel-desc">Export identified hosts as TXT · CSV · JSON — drop into nmap, nuclei, ffuf, or your ticketing system.</p>
+        <p class="panel-desc">Export identified hosts (with owner class + web status) as TXT · CSV · JSON — for owner assignment or as nmap/nuclei/ffuf input. Status: LIVE = serves a page · RESPONDS = 3xx/4xx · OFFLINE = resolves but no HTTP.</p>
       </div>
       <div class="toolbar">
         <div id="x-classes" class="chip-group"></div>
+        <div class="chip-group" id="x-webstatus"></div>
         <div class="chip-group">
           <label><input type="checkbox" id="x-with-findings"> Only Hosts With Findings</label>
         </div>

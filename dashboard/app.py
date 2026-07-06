@@ -288,6 +288,45 @@ def _parse_assets(log: Path) -> list[dict]:
     return rows
 
 
+_LIVE_LINE_RE = re.compile(r"^\S*?://([^/\s\[]+).*?\[(\d{3})\]")
+
+
+def _liveness_map(scan_dir: Path) -> dict[str, int]:
+    """Parse recon/live_hosts.txt (httpx output: 'scheme://host [code] [ip]…')
+    into {host: best_http_code}. 'Best' prefers 2xx > 3xx > 4xx/5xx so a host
+    live on https but 404 on http reads as live. Hosts absent from this map
+    resolved DNS but returned no HTTP response (offline on web)."""
+    p = scan_dir / "recon" / "live_hosts.txt"
+    out: dict[str, int] = {}
+    if not p.is_file():
+        return out
+
+    def _rank(code: int) -> int:
+        if 200 <= code < 300: return 0
+        if 300 <= code < 400: return 1
+        return 2
+    with p.open("r", errors="ignore") as f:
+        for line in f:
+            m = _LIVE_LINE_RE.match(line.strip())
+            if not m:
+                continue
+            host = m.group(1).split(":")[0].lower()
+            code = int(m.group(2))
+            if host not in out or _rank(code) < _rank(out[host]):
+                out[host] = code
+    return out
+
+
+def _web_status(code: Optional[int]) -> str:
+    """LIVE = serves a page (2xx); RESPONDS = answers but not a real page
+    (3xx/4xx/5xx — redirects, 403, 404); OFFLINE = resolves but no HTTP."""
+    if code is None:
+        return "OFFLINE"
+    if 200 <= code < 300:
+        return "LIVE"
+    return "RESPONDS"
+
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
@@ -807,6 +846,7 @@ def extract_assets(
     format: str = "json",
     owner_class: Optional[str] = None,
     only_with_findings: bool = False,
+    web_status: Optional[str] = None,
     download: bool = False,
 ) -> object:
     """Export the identified asset inventory.
@@ -869,6 +909,7 @@ def extract_assets(
     raw_universe.update(enum_hosts)
     all_hosts: set[str] = {ch for h in raw_universe if (ch := _clean_host(h))}
 
+    live = _liveness_map(sd)
     rows = []
     for h in sorted(all_hosts):
         c = omap.get(h) or omap.get(h.lower())
@@ -877,12 +918,15 @@ def extract_assets(
         ip = c.ip if c else ""
         asn = c.asn if c else ""
         fh = per_host.get(h, {"n": 0, "max_sev": ""})
+        code = live.get(h)
         rows.append({
             "host":         h,
             "owner_class":  cls,
             "provider":     prov,
             "ip":           ip,
             "asn":          asn,
+            "web_status":   _web_status(code),   # LIVE | RESPONDS | OFFLINE
+            "http_code":    code or "",
             "findings":     fh["n"],
             "max_severity": fh["max_sev"] if fh["n"] else "",
         })
@@ -890,6 +934,9 @@ def extract_assets(
     if owner_class:
         cls_set = {c.strip().upper() for c in owner_class.split(",") if c.strip()}
         rows = [r for r in rows if r["owner_class"] in cls_set]
+    if web_status:
+        st_set = {s.strip().upper() for s in web_status.split(",") if s.strip()}
+        rows = [r for r in rows if r["web_status"] in st_set]
     if only_with_findings:
         rows = [r for r in rows if r["findings"] > 0]
 
@@ -905,18 +952,24 @@ def extract_assets(
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(["host", "owner_class", "provider", "ip", "asn",
-                    "findings", "max_severity"])
+                    "web_status", "http_code", "findings", "max_severity"])
         for r in rows:
             w.writerow([r["host"], r["owner_class"], r["provider"], r["ip"],
-                        r["asn"], r["findings"], r["max_severity"]])
+                        r["asn"], r["web_status"], r["http_code"],
+                        r["findings"], r["max_severity"]])
         headers = {}
         if download:
             headers["Content-Disposition"] = f'attachment; filename="{name}_assets.csv"'
         return PlainTextResponse(buf.getvalue(), media_type="text/csv", headers=headers)
+    # Liveness tally over the (post-filter) rows for the UI summary/pills.
+    web_counts = {"LIVE": 0, "RESPONDS": 0, "OFFLINE": 0}
+    for r in rows:
+        web_counts[r["web_status"]] = web_counts.get(r["web_status"], 0) + 1
     # json (default)
     return JSONResponse({
         "name": name,
         "count": len(rows),
+        "web_counts": web_counts,
         "sources": {
             "ownership":  len(omap),
             "findings":   sum(1 for h in per_host),
@@ -925,6 +978,7 @@ def extract_assets(
         "filters": {
             "owner_class": owner_class,
             "only_with_findings": only_with_findings,
+            "web_status": web_status,
         },
         "rows": rows,
     })

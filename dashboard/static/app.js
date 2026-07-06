@@ -1390,7 +1390,8 @@ function renderDiffChanged(sel, rows) {
 }
 
 // ─── Extract tab ─────────────────────────────────────────────────────────────
-const extractState = { activeClasses: new Set(), withFindings: false, format: "txt" };
+const extractState = { activeClasses: new Set(), webStatus: new Set(), withFindings: false, format: "txt" };
+const WEB_STATUSES = ["LIVE", "RESPONDS", "OFFLINE"];
 
 function bindExtract() {
   $$('#x-format-group input').forEach(r => r.addEventListener("change", e => {
@@ -1419,6 +1420,8 @@ function buildExtractUrl({ download = false } = {}) {
   params.set("format", extractState.format);
   if (extractState.activeClasses.size)
     params.set("owner_class", Array.from(extractState.activeClasses).join(","));
+  if (extractState.webStatus.size)
+    params.set("web_status", Array.from(extractState.webStatus).join(","));
   if (extractState.withFindings)
     params.set("only_with_findings", "true");
   if (download) params.set("download", "true");
@@ -1432,9 +1435,13 @@ async function loadExtract() {
   const meta = await api(`/api/scans/${state.selected}/extract?format=json`);
   const previewBody = await fetch(buildExtractUrl()).then(r => r.text());
   renderExtractChips(meta);
-  $("#x-count").textContent =
-    `${(await countAfterFilter(meta))} hosts (of ${meta.count} identified)` +
-    `  ·  sources: ownership ${meta.sources.ownership} · findings ${meta.sources.findings} · enum ${meta.sources.enum_files}`;
+  renderWebStatusChips(meta);
+  const wc = meta.web_counts || {};
+  $("#x-count").innerHTML =
+    `${(await countAfterFilter(meta))} hosts (of ${meta.count})` +
+    `  ·  <span class="ws-tag LIVE">LIVE ${wc.LIVE||0}</span> ` +
+    `<span class="ws-tag RESPONDS">RESPONDS ${wc.RESPONDS||0}</span> ` +
+    `<span class="ws-tag OFFLINE">OFFLINE ${wc.OFFLINE||0}</span>`;
   if (!meta.count) {
     $("#extract-empty").classList.remove("hidden");
     $("#extract-preview").classList.add("hidden");
@@ -1452,6 +1459,9 @@ function countAfterFilter(meta) {
     let rows = meta.rows;
     if (extractState.activeClasses.size) {
       rows = rows.filter(r => extractState.activeClasses.has(r.owner_class));
+    }
+    if (extractState.webStatus.size) {
+      rows = rows.filter(r => extractState.webStatus.has(r.web_status));
     }
     if (extractState.withFindings) {
       rows = rows.filter(r => (r.findings || 0) > 0);
@@ -1481,6 +1491,26 @@ function renderExtractChips(meta) {
     el.querySelector("input").addEventListener("change", e => {
       if (e.target.checked) extractState.activeClasses.add(cls);
       else extractState.activeClasses.delete(cls);
+      group.dataset.rendered = "";
+      loadExtract();
+    });
+    group.appendChild(el);
+  });
+}
+
+function renderWebStatusChips(meta) {
+  const group = $("#x-webstatus");
+  if (!group || group.dataset.rendered === "1") return;
+  group.dataset.rendered = "1";
+  group.innerHTML = "";
+  const wc = meta.web_counts || {};
+  WEB_STATUSES.forEach(st => {
+    const el = document.createElement("label");
+    el.innerHTML = `<input type="checkbox" value="${st}" ${extractState.webStatus.has(st) ? "checked" : ""}>` +
+      `<span class="ws-tag ${st}" style="border-width:1px">${st} ${wc[st] || 0}</span>`;
+    el.querySelector("input").addEventListener("change", e => {
+      if (e.target.checked) extractState.webStatus.add(st);
+      else extractState.webStatus.delete(st);
       group.dataset.rendered = "";
       loadExtract();
     });
