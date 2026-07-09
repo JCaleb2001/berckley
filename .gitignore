@@ -7,6 +7,9 @@ asset_tags.json
 suppressions.json
 domains_*.txt
 scope*.txt
+known_hosts.txt
+known_ips.txt
+subfinder-provider-config.yaml
 
 # Local editor / OS noise
 .vscode/
