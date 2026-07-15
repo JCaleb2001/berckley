@@ -21,12 +21,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
     PlainTextResponse,
+    RedirectResponse,
     StreamingResponse,
 )
 from fastapi.staticfiles import StaticFiles
@@ -45,6 +46,7 @@ import taxonomy as nw_taxonomy
 import scorecard as nw_scorecard
 import confidence as nw_confidence
 import evidence as nw_evidence
+import auth
 
 ROOT = Path(os.environ.get("PENTEST_ROOT", "/workspace")).resolve()
 SCANNER = Path(os.environ.get("SCANNER_PATH", str(ROOT / "extpentest.sh")))
@@ -56,6 +58,100 @@ SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
 SCAN_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 app = FastAPI(title="berckley console", version="0.2.0")
+
+
+# ─── Authentication (SOC-analyst gate) ────────────────────────────────────────
+# Every request must carry a valid session cookie for an active soc_analyst,
+# except the login/logout/health endpoints. Unauthenticated API calls get 401;
+# page loads redirect to /login.
+_AUTH_PUBLIC = {"/login", "/api/login", "/logout", "/api/health"}
+
+
+@app.middleware("http")
+async def _auth_gate(request: Request, call_next):
+    path = request.url.path
+    if path in _AUTH_PUBLIC:
+        return await call_next(request)
+    user = auth.current_user(request)
+    if not user:
+        if path.startswith("/api/"):
+            return JSONResponse({"detail": "authentication required"}, status_code=401)
+        return RedirectResponse("/login", status_code=303)
+    request.state.user = user
+    return await call_next(request)
+
+
+def _login_page(error: str = "") -> str:
+    err = (
+        f'<p class="err">{error}</p>' if error else ""
+    )
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Berckley Console — Sign in</title>
+<style>
+  :root {{ color-scheme: light; }}
+  * {{ box-sizing: border-box; }}
+  body {{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:#f3f4f6; color:#111827; display:flex; min-height:100vh; align-items:center; justify-content:center; }}
+  .card {{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:32px 28px;
+    width:340px; box-shadow:0 6px 24px rgba(0,0,0,.06); }}
+  h1 {{ font-size:18px; margin:0 0 4px; }}
+  .sub {{ color:#6b7280; font-size:12px; margin:0 0 20px; }}
+  label {{ display:block; font-size:12px; font-weight:600; margin:12px 0 4px; }}
+  input {{ width:100%; padding:9px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; }}
+  input:focus {{ outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }}
+  button {{ width:100%; margin-top:20px; padding:10px; border:0; border-radius:8px; background:#2563eb;
+    color:#fff; font-size:14px; font-weight:600; cursor:pointer; }}
+  button:hover {{ background:#1d4ed8; }}
+  .err {{ background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:8px;
+    padding:8px 10px; font-size:12px; margin:0 0 8px; }}
+  .foot {{ color:#9ca3af; font-size:11px; margin-top:16px; text-align:center; }}
+</style></head>
+<body>
+  <form class="card" method="post" action="/api/login">
+    <h1>Berckley Console</h1>
+    <p class="sub">Restricted — SOC analysts only.</p>
+    {err}
+    <label for="u">Username</label>
+    <input id="u" name="username" autocomplete="username" autofocus required>
+    <label for="p">Password</label>
+    <input id="p" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+    <p class="foot">Authorized use only. Activity may be logged.</p>
+  </form>
+</body></html>"""
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page() -> HTMLResponse:
+    return HTMLResponse(_login_page())
+
+
+@app.post("/api/login")
+def api_login(username: str = Form(...), password: str = Form(...)):
+    user = auth.authenticate(username, password)
+    if not user or user.get("role") not in auth.ALLOWED_ROLES:
+        return HTMLResponse(
+            _login_page("Invalid credentials, or your account is not authorized."),
+            status_code=401,
+        )
+    resp = RedirectResponse("/", status_code=303)
+    resp.set_cookie(
+        auth.SESSION_COOKIE,
+        auth.make_session(user["username"]),
+        max_age=auth.SESSION_TTL,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return resp
+
+
+@app.api_route("/logout", methods=["GET", "POST"])
+def logout() -> RedirectResponse:
+    resp = RedirectResponse("/login", status_code=303)
+    resp.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return resp
 
 
 def _findings_path(scan_dir: Path, prefer_validated: bool = True) -> Path:
@@ -333,7 +429,7 @@ def _web_status(code: Optional[int]) -> str:
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
-def index() -> HTMLResponse:
+def index(request: Request) -> HTMLResponse:
     # Cache-bust the static assets by rewriting the script + link refs with
     # a query param tied to file mtime. Avoids stale JS/CSS in browsers that
     # cached aggressively across rebuilds.
@@ -347,6 +443,18 @@ def index() -> HTMLResponse:
                         f'href="/static/style.css?v={ver_css}"')
     html = html.replace('src="/static/app.js"',
                         f'src="/static/app.js?v={ver_js}"')
+    # Signed-in identity + logout affordance (fixed, top-right).
+    user = getattr(request.state, "user", None) or {}
+    who = str(user.get("username", "")).replace("<", "").replace(">", "")
+    badge = (
+        '<div id="auth-badge" style="position:fixed;top:8px;right:12px;z-index:9999;'
+        'font:12px/1 -apple-system,Segoe UI,Roboto,sans-serif;color:#374151;'
+        'background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 12px;'
+        'box-shadow:0 1px 3px rgba(0,0,0,.08)">'
+        f'\U0001f464 {who} &nbsp;·&nbsp; <a href="/logout" style="color:#2563eb;text-decoration:none">Sign out</a>'
+        '</div>'
+    )
+    html = html.replace("</body>", badge + "</body>") if "</body>" in html else html + badge
     return HTMLResponse(html)
 
 

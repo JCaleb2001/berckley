@@ -59,7 +59,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
-COPY app.py validator.py ownership.py suppressions.py diff.py report_extras.py intake.py risk.py asset_tags.py screenshots.py taxonomy.py scorecard.py confidence.py evidence.py ./
+COPY app.py auth.py validator.py ownership.py suppressions.py diff.py report_extras.py intake.py risk.py asset_tags.py screenshots.py taxonomy.py scorecard.py confidence.py evidence.py ./
 COPY static ./static
 
 EXPOSE 8080

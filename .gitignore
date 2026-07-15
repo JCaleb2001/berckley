@@ -10,6 +10,9 @@ scope*.txt
 known_hosts.txt
 known_ips.txt
 subfinder-provider-config.yaml
+# Auth: user store + signing secret — credentials, never commit
+.berckley_users.json
+.berckley_secret
 
 # Local editor / OS noise
 .vscode/
